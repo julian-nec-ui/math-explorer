@@ -98,7 +98,7 @@ jobs:
           cat > "$out" <<CFG
           // @ts-nocheck
           $base
-          const bp = process.env.BASE_PATH || "";
+          const bp = "$BASE_PATH";
           $exp async (phase, ctx) => {
             const b = (base && base.default) || base;
             const c = typeof b === "function" ? await b(phase, ctx) : (b || {});
@@ -132,6 +132,7 @@ jobs:
           grep -oE '(href|src)="[^"]*_next/static[^"]*"' out/index.html | sort -u | head -20
           css=$(grep -oE 'href="[^"]*\.css"' out/index.html | head -1 | sed -E 's/href="//; s/"$//')
           [ -n "$css" ] || { echo "::error::out/index.html links no stylesheet"; exit 1; }
+          case "$css" in "$BASE_PATH"/*) ;; *) echo "::error::$css does not start with $BASE_PATH"; exit 1;; esac
           f="out${css#${BASE_PATH}}"
           [ -f "$f" ] || { echo "::error::$css is linked but $f is not in the export"; exit 1; }
           echo "stylesheet ok: $css"
