@@ -106,7 +106,6 @@ jobs:
               ...c,
               output: "export",
               basePath: bp,
-              assetPrefix: bp ? bp + "/" : undefined,
               trailingSlash: true,
               images: { ...(c.images || {}), unoptimized: true },
             };
@@ -120,6 +119,8 @@ jobs:
           GITHUB_PAGES: "true"
 
       - name: Check export
+        env:
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
         run: |
           if [ ! -f out/index.html ]; then
             echo "::error::The build made no ./out/index.html"
@@ -127,6 +128,13 @@ jobs:
             exit 1
           fi
           touch out/.nojekyll
+          echo "---- assets referenced by out/index.html:"
+          grep -oE '(href|src)="[^"]*_next/static[^"]*"' out/index.html | sort -u | head -20
+          css=$(grep -oE 'href="[^"]*\.css"' out/index.html | head -1 | sed -E 's/href="//; s/"$//')
+          [ -n "$css" ] || { echo "::error::out/index.html links no stylesheet"; exit 1; }
+          f="out${css#${BASE_PATH}}"
+          [ -f "$f" ] || { echo "::error::$css is linked but $f is not in the export"; exit 1; }
+          echo "stylesheet ok: $css"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
