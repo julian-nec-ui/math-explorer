@@ -32,6 +32,7 @@ jobs:
           cache: pnpm
 
       - name: Setup Pages
+        id: pages
         uses: actions/configure-pages@v6
 
       - name: Restore Next.js cache
@@ -72,10 +73,59 @@ jobs:
                 done
           done
 
+      # Force the static export for this build only, whatever next.config says: the project's own
+      # config is kept and wrapped, with output "export", the repo's base path and unoptimized images
+      # added on top. Your repository is not changed.
+      - name: Force static export
+        env:
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: |
+          cfg=""
+          for f in next.config.ts next.config.mjs next.config.js; do
+            [ -f "$f" ] && cfg="$f" && break
+          done
+          if [ -n "$cfg" ]; then
+            ext="${cfg##*.}"
+            mv "$cfg" "next.config.base.$ext"
+            base="import base from './next.config.base';"
+            [ "$ext" = "js" ] && base="const base = require('./next.config.base.js');"
+          else
+            ext="mjs"
+            base="const base = {};"
+          fi
+          out="next.config.$ext"
+          [ "$ext" = "js" ] && exp="module.exports =" || exp="export default"
+          cat > "$out" <<CFG
+          $base
+          const bp = process.env.BASE_PATH || "";
+          $exp async (phase, ctx) => {
+            const b = (base && base.default) || base;
+            const c = typeof b === "function" ? await b(phase, ctx) : (b || {});
+            return {
+              ...c,
+              output: "export",
+              basePath: bp,
+              assetPrefix: bp ? bp + "/" : undefined,
+              trailingSlash: true,
+              images: { ...(c.images || {}), unoptimized: true },
+            };
+          };
+          CFG
+          echo "---- $out (for this build only)"; cat "$out"
+
       - name: Build (static export)
         run: pnpm run build
         env:
           GITHUB_PAGES: "true"
+
+      - name: Check export
+        run: |
+          if [ ! -f out/index.html ]; then
+            echo "::error::The build made no ./out/index.html"
+            ls -la
+            exit 1
+          fi
+          touch out/.nojekyll
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
