@@ -115,7 +115,15 @@ export function useColBottom(colRef: Ref<HTMLDivElement>, cell: number): number 
 // at the top while the rows below were still empty.)
 export function useScrollFollow(viewRef: Ref<HTMLDivElement>, isAnimating: boolean): void {
   const runningRef = useRef(false);
-  useEffect(() => { runningRef.current = isAnimating; }, [isAnimating]);
+  useEffect(() => {
+    runningRef.current = isAnimating;
+    // when an explanation starts and the page itself scrolls (phones, phones held sideways), bring the board into view
+    const el = viewRef.current;
+    if (!isAnimating || !el || el.scrollHeight > el.clientHeight + 1) return;
+    const page = document.scrollingElement ?? document.documentElement;
+    if (page.scrollHeight <= window.innerHeight + 1) return;
+    if (el.getBoundingClientRect().top > 8) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [isAnimating, viewRef]);
   useEffect(() => {
     const el = viewRef.current;
     const content = el?.firstElementChild;
@@ -123,7 +131,12 @@ export function useScrollFollow(viewRef: Ref<HTMLDivElement>, isAnimating: boole
     let frame = 0;
     const follow = () => {
       frame = 0;
-      if (!runningRef.current || el.scrollHeight <= el.clientHeight + 1) return;
+      if (!runningRef.current) return;
+      // the board scrolls inside its own frame (desk), or, when the frame grows with it (phones, phones held sideways),
+      // the page scrolls instead
+      const inFrame = el.scrollHeight > el.clientHeight + 1;
+      const page = document.scrollingElement ?? document.documentElement;
+      if (!inFrame && page.scrollHeight <= window.innerHeight + 1) return;
       // the lowest piece of text that can be seen (leaves with text, not faded out)
       let lowest = -Infinity;
       for (const node of content.querySelectorAll('*')) {
@@ -136,8 +149,13 @@ export function useScrollFollow(viewRef: Ref<HTMLDivElement>, isAnimating: boole
         }
         if (!hidden) lowest = r.bottom;
       }
-      const over = lowest + 16 - el.getBoundingClientRect().bottom;
-      if (over > 1) el.scrollBy({ top: over, behavior: 'smooth' });
+      if (inFrame) {
+        const over = lowest + 16 - el.getBoundingClientRect().bottom;
+        if (over > 1) el.scrollBy({ top: over, behavior: 'smooth' });
+        return;
+      }
+      const over = lowest + 16 - window.innerHeight;
+      if (over > 1) window.scrollBy({ top: over, behavior: 'smooth' });
     };
     const schedule = () => { if (!frame) frame = requestAnimationFrame(follow); };
     const ro = new ResizeObserver(schedule);

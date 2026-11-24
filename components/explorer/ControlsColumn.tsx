@@ -28,6 +28,11 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
       <div className="hidden md:flex absolute right-0 translate-y-1/2" style={{ bottom: `calc(100% + ${timerGap / 2}px - ${COL_DROP / 2 / 16}rem)` }}>
         <SevenSeg text={formatElapsed(elapsed)} label={`Elapsed time ${formatElapsed(elapsed)}`} />
       </div>
+      {/* On a phone (under md) the column is a normal row above the board: the elapsed time on its own line, at the top,
+          centred */}
+      <div className="flex md:hidden justify-center">
+        <SevenSeg text={formatElapsed(elapsed)} label={`Elapsed time ${formatElapsed(elapsed)}`} />
+      </div>
       <div className="grid w-full md:w-max grid-cols-[auto_1fr] gap-2">
       {/* How many digits each number has: a steel drum per number (always open, no three dots; 1 to 12, fractions:
           one per numerator / denominator, 1 to 6), each after its label, in their own box (same background as

@@ -2351,6 +2351,9 @@
     .md\:flex {
       display: flex;
     }
+    .md\:hidden {
+      display: none;
+    }
     .md\:h-6 {
       height: calc(var(--spacing) * 6);
     }
