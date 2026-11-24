@@ -1,0 +1,163 @@
+{
+ "span": [
+  286,
+  515
+ ],
+ "locals": [
+  {
+   "name": "run",
+   "type": "boolean"
+  },
+  {
+   "name": "ready",
+   "type": "boolean"
+  },
+  {
+   "name": "refs",
+   "type": "React.RefObject<Record<string, HTMLElement | null>>"
+  },
+  {
+   "name": "setHop",
+   "type": "React.Dispatch<React.SetStateAction<Hop | null>>"
+  },
+  {
+   "name": "valid",
+   "type": "boolean"
+  },
+  {
+   "name": "onStatus",
+   "type": "(text: string) => void"
+  },
+  {
+   "name": "onDone",
+   "type": "() => void"
+  },
+  {
+   "name": "f2",
+   "type": "Frac"
+  },
+  {
+   "name": "f1",
+   "type": "Frac"
+  },
+  {
+   "name": "setHl",
+   "type": "React.Dispatch<React.SetStateAction<string>>"
+  },
+  {
+   "name": "D",
+   "type": "number"
+  },
+  {
+   "name": "k1",
+   "type": "number"
+  },
+  {
+   "name": "k2",
+   "type": "number"
+  },
+  {
+   "name": "setFact",
+   "type": "React.Dispatch<React.SetStateAction<{ rows: number; shown: number[]; power: boolean[]; pick: boolean; lcmRow: boolean; lcm: number; values: boolean; result: boolean; } | null>>"
+  },
+  {
+   "name": "fRows",
+   "type": "{ d: number; pf: { p: number; e: number; }[]; flat: number[]; hasPower: boolean; }[]"
+  },
+  {
+   "name": "lcmPicks",
+   "type": "{ p: number; e: number; row: number; }[]"
+  },
+  {
+   "name": "setMultiples",
+   "type": "React.Dispatch<React.SetStateAction<{ a: (number | null)[]; b: (number | null)[]; common: number | null; } | null>>"
+  },
+  {
+   "name": "setAmp1",
+   "type": "React.Dispatch<React.SetStateAction<Mark | null>>"
+  },
+  {
+   "name": "setAmp2",
+   "type": "React.Dispatch<React.SetStateAction<Mark | null>>"
+  },
+  {
+   "name": "setLine2",
+   "type": "React.Dispatch<React.SetStateAction<{ t1: boolean; t2: boolean; den: boolean; } | null>>"
+  },
+  {
+   "name": "a1",
+   "type": "number"
+  },
+  {
+   "name": "a2",
+   "type": "number"
+  },
+  {
+   "name": "setLine3",
+   "type": "React.Dispatch<React.SetStateAction<{ num: boolean; den: boolean; simp: Mark | null; } | null>>"
+  },
+  {
+   "name": "N",
+   "type": "number"
+  },
+  {
+   "name": "setExtra",
+   "type": "React.Dispatch<React.SetStateAction<\"whole\" | \"mixed\" | null>>"
+  },
+  {
+   "name": "g",
+   "type": "number"
+  },
+  {
+   "name": "rn",
+   "type": "number"
+  },
+  {
+   "name": "rd",
+   "type": "number"
+  },
+  {
+   "name": "sN",
+   "type": "1 | -1"
+  },
+  {
+   "name": "whole",
+   "type": "number"
+  },
+  {
+   "name": "setMix",
+   "type": "React.Dispatch<React.SetStateAction<{ stage: 1 | 2 | 3; parts: number; den: boolean; wholes: number; fw: boolean; } | null>>"
+  },
+  {
+   "name": "rem",
+   "type": "number"
+  }
+ ],
+ "moduleLocals": [
+  "FR_HOP_MS",
+  "FR_LAND_MS",
+  "FR_HOP_PAUSE",
+  "showFrac",
+  "listLength",
+  "MAX_MULTIPLES",
+  "powerText",
+  "listOf",
+  "Frac",
+  "Mark",
+  "MAX_WHOLE_PIECES"
+ ],
+ "imports": [
+  {
+   "name": "pausableTimeout",
+   "from": "../../math/shared"
+  },
+  {
+   "name": "paced",
+   "from": "../../math/shared"
+  },
+  {
+   "name": "doneMessage",
+   "from": "../../math/shared"
+  }
+ ]
+}

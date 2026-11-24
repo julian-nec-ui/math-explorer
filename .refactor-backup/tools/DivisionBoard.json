@@ -1,0 +1,127 @@
+{
+ "span": [
+  168,
+  400
+ ],
+ "locals": [
+  {
+   "name": "run",
+   "type": "boolean"
+  },
+  {
+   "name": "setChips",
+   "type": "React.Dispatch<React.SetStateAction<Chip[]>>"
+  },
+  {
+   "name": "num1",
+   "type": "NumberData"
+  },
+  {
+   "name": "num2",
+   "type": "NumberData"
+  },
+  {
+   "name": "method",
+   "type": "DivisionMethod"
+  },
+  {
+   "name": "result",
+   "type": "DivisionResult"
+  },
+  {
+   "name": "layout",
+   "type": "React.RefObject<{ cell: number; yD: number; yWork: number; x: (k: number) => number; }>"
+  },
+  {
+   "name": "setRows",
+   "type": "React.Dispatch<React.SetStateAction<WorkRow[]>>"
+  },
+  {
+   "name": "onStatus",
+   "type": "(text: string) => void"
+  },
+  {
+   "name": "setShifted",
+   "type": "React.Dispatch<React.SetStateAction<boolean>>"
+  },
+  {
+   "name": "setHl",
+   "type": "React.Dispatch<React.SetStateAction<Set<string>>>"
+  },
+  {
+   "name": "setQuot",
+   "type": "React.Dispatch<React.SetStateAction<Cell[]>>"
+  },
+  {
+   "name": "setLines",
+   "type": "React.Dispatch<React.SetStateAction<Line[]>>"
+  },
+  {
+   "name": "setHop",
+   "type": "React.Dispatch<React.SetStateAction<{ x0: number; y0: number; x1: number; y1: number; key: string; } | null>>"
+  },
+  {
+   "name": "setPop",
+   "type": "React.Dispatch<React.SetStateAction<{ x: number; y: number; text: string; lead: number; splitting: boolean; } | null>>"
+  },
+  {
+   "name": "setFadingCells",
+   "type": "React.Dispatch<React.SetStateAction<Set<string>>>"
+  },
+  {
+   "name": "setUsedD",
+   "type": "React.Dispatch<React.SetStateAction<Set<number>>>"
+  },
+  {
+   "name": "setMover",
+   "type": "React.Dispatch<React.SetStateAction<Mover | null>>"
+  },
+  {
+   "name": "setFinalRow",
+   "type": "React.Dispatch<React.SetStateAction<string | null>>"
+  },
+  {
+   "name": "setQSign",
+   "type": "React.Dispatch<React.SetStateAction<1 | -1 | null>>"
+  },
+  {
+   "name": "onDone",
+   "type": "() => void"
+  }
+ ],
+ "moduleLocals": [
+  "planDivision",
+  "WorkRow",
+  "Line",
+  "Cell",
+  "ZERO",
+  "TEN",
+  "quotientUpTo"
+ ],
+ "imports": [
+  {
+   "name": "pausableTimeout",
+   "from": "../../math/shared"
+  },
+  {
+   "name": "paced",
+   "from": "../../math/shared"
+  },
+  {
+   "name": "NumberData",
+   "from": "../../math/shared"
+  },
+  {
+   "name": "HOP_MS",
+   "from": "../../math/shared"
+  },
+  {
+   "name": "formatNumber",
+   "from": "../../math/shared"
+  },
+  {
+   "name": "doneMessage",
+   "from": "../../math/shared"
+  }
+ ]
+}

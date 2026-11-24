@@ -1,0 +1,1000 @@
+"use client";
+
+// Addition and subtraction, column by column, with carries and borrows that move where you can see them.
+// One board for both tabs (`op`): a subtraction is an addition with the second number's sign turned round, and
+// negative numbers are first rewritten as the operation really done on the digits (e.g. 3 − 8 = −(8 − 3)).
+// Like the other boards it starts when `run` turns true, reports each step with `onStatus` and calls `onDone` at the
+// end; the page remounts it (new key) to clear it.
+
+import { useState, useEffect, useLayoutEffect, useRef, useSyncExternalStore, Fragment, type CSSProperties, type ReactElement, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { paced, pausableTimeout, CELL, CELL_W, COMMA_STYLE, REM_PX, OperandTag, CarryHop, Digit, HOP_MS, SumPop, doneMessage, formatNumber, OpIcon, ResultSign, toRem, useCellSize, intLength, CARRY_CHIP, BORROW_CHIP, chipSize, pickVariant, type NumberData, type BadgeKind, type BoardProps } from '../../math/shared';
+
+type DotState = 'on' | 'dim' | 'hidden';
+interface ResultDigit { value: number; id: string; }
+interface FlightData { startX: number; startY: number; endX: number; endY: number; value: number; }
+interface Badge { id: string; col: number; side: 'left' | 'right'; value: number; kind: BadgeKind; fading: boolean; }
+interface CellDigit { value: number; index: number; } // index = position in `digits`, -1 for a padding zero
+// How the board shows an addition/subtraction with negative numbers, rewritten as the operation actually done
+// on the digits: the two magnitudes (no signs), top and bottom, the real operation, and whether the whole
+// result takes a minus in front, as in −(8 − 3)
+interface RewrittenView { top: NumberData; bottom: NumberData; op: 'addition' | 'subtraction'; outerMinus: boolean; }
+type CustomCSSProperties = CSSProperties & Record<`--${string}`, string>;
+
+const FLIGHT_MS = 1400;
+
+const digitAt = (n: NumberData, col: number, decLen: number): CellDigit | null => {
+  const intLen = intLength(n);
+  if (col < decLen) {
+    const k = decLen - 1 - col; // which decimal place, from the left
+    return k < n.decimalCount ? { value: n.digits[intLen + k], index: intLen + k } : { value: 0, index: -1 };
+  }
+  const j = col - decLen; // which integer digit, from the right
+  return j < intLen ? { value: n.digits[intLen - 1 - j], index: intLen - 1 - j } : null;
+};
+
+const toColumns = (n: NumberData, intLen: number, decLen: number): number[] => {
+  const out: number[] = [];
+  for (let col = intLen + decLen - 1; col >= 0; col--) out.push(digitAt(n, col, decLen)?.value ?? 0);
+  return out;
+};
+
+const compareMagnitude = (a: number[], b: number[]): number => {
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] - b[i];
+  return 0;
+};
+
+const EmptyCell = (): ReactElement => <div className={`${CELL} shrink-0`} aria-hidden="true" />;
+
+const DecimalPoint = ({ state }: { state: DotState }): ReactElement => (
+  // The same 6px point as in multiplication and division, 3px from the digits on each side (Julian): the rows' 6px gaps
+  // are taken back by −3px margins (see DOT_OUTER)
+  <div className={`w-1.5 h-1.5 -mx-0.75 mb-0.75 shrink-0 self-end rounded-full transition-opacity duration-500 ${state === 'on' ? 'bg-cyan-300 shadow-[0_0_4px_rgba(103,232,249,0.9)]' : state === 'dim' ? 'bg-zinc-600' : 'opacity-0'}`} aria-label={state === 'hidden' ? undefined : 'point'} />
+);
+
+const CommaSeparator = ({ visible }: { visible: boolean }): ReactElement => (
+  <div className={`w-3 shrink-0 flex justify-center leading-7 self-end ${visible ? '' : 'opacity-0'}`}>
+    <span className={COMMA_STYLE}>,</span>
+  </div>
+);
+
+interface AddSubBoardProps extends BoardProps {
+  op: 'addition' | 'subtraction';
+}
+
+// Size and place (Julian's rule). Desktop (64rem and wider): the digits keep their normal size and the board stays
+// a little left of the centre while it fits (0px with 1 digit … 20px with 12). Too long for the board area (more digits, or the steps window widened): first it moves left,
+// into the free room up to 15px from the controls column (`leftRoom`), so its right end stays at the area's edge (2px
+// from the steps window); only when there is no room left on the left does it shrink, smoothly, down to 50%; then the
+// window comes over the digits and the board scrolls. Room again: the normal size and the centre come back.
+// Tablet / phone: shrink to fit, down to 45%
+const ADD_MIN_FIT_DESK = 0.5;
+const ADD_SHIFT_MAX = 20; // px left of the centre with 12 digits (reached by 11: 10/11 of it)
+const ADD_EDGE_GAP = 1; // px between the last digit and the board area's edge when the board is as wide as it gets
+const ADD_GROW_LEFT_FROM = 11; // from this many digits on, more digits only grow the board to the left
+const ADD_MIN_FIT_SMALL = 0.45;
+const WIDE_QUERY = '(min-width: 64rem)';
+const subscribeWide = (cb: () => void) => {
+  const mq = window.matchMedia(WIDE_QUERY);
+  mq.addEventListener('change', cb);
+  return () => mq.removeEventListener('change', cb);
+};
+// Room between the cells of a row: 6px (half the 11px of the other boards) and 12px thousands commas (instead of 20px),
+// so long numbers fit at a bigger size
+const G = 6;
+const COMMA_SLOT = 12;
+// The decimal point's room in a row: 6px wide with −3px margins on both sides (3px from each digit; Julian
+// chose 3px over 2px)
+const DOT_OUTER = 6 - 6;
+
+
+export default function AddSubBoard({ op, num1, num2, run, onStatus, onDone, renderSign, onCycleDigit, hoverEdit = false, availableWidth, leftRoom = 0, stepsClosed = false, pageMidX, smoothFit = false, onNaturalWidth }: AddSubBoardProps): ReactElement {
+  // The board's natural size (offsetWidth / offsetHeight: not changed by the scaling, the same in every browser), so the
+  // box around it can take the scaled size, and the scale (see ADD_MIN_FIT_DESK)
+  const rootRef = useRef<HTMLDivElement>(null);
+  // dl / dr: where the digits start and end inside it (the leftmost and rightmost digit cells), unscaled
+  const [natural, setNatural] = useState<{ w: number; h: number; dl: number; dr: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    // In nominal px (at a 16px root font size), the unit of availableWidth and leftRoom: with a bigger root font size
+    // (browser font setting) the board's real px are bigger, and mixing the two shrank the board for nothing
+    const measure = () => {
+      const k = REM_PX / (parseFloat(getComputedStyle(document.documentElement).fontSize) || REM_PX);
+      const w = el.offsetWidth * k, h = el.offsetHeight * k;
+      const r = el.getBoundingClientRect();
+      const scale = el.offsetWidth ? r.width / el.offsetWidth : 1;
+      const cells = [...el.querySelectorAll('.rounded-md.border-2')].map(c => c.getBoundingClientRect());
+      const dl = cells.length ? ((Math.min(...cells.map(c => c.left)) - r.left) / scale) * k : 0;
+      const dr = cells.length ? ((Math.max(...cells.map(c => c.right)) - r.left) / scale) * k : w;
+      const same = (a: number, b: number) => Math.abs(a - b) < 0.05;
+      setNatural(prev => (prev && same(prev.w, w) && same(prev.h, h) && same(prev.dl, dl) && same(prev.dr, dr) ? prev : { w, h, dl, dr }));
+    };
+    measure();
+    measureRef.current = measure;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // Also measured after every render, before the browser paints: a digit added changes the board's width, and waiting
+  // for the ResizeObserver would show one frame with the old width (the numbers jumping right, then back)
+  const measureRef = useRef<() => void>(() => {});
+  useLayoutEffect(() => { measureRef.current(); });
+  const wide = useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE_QUERY).matches, () => true);
+  // How much of the board fits in a width (1 = all of it). availableWidth keeps 16px; 8px of them may be used
+  // (tablet / phone)
+  const fitIn = (w: number) => (natural ? Math.min(1, (w + 8) / natural.w) : 1);
+  // Desktop: the board area's width, plus the room on its left the board may move into
+  // (minus ADD_EDGE_GAP: the last digit stops that far from the board area's edge, which is 2px from the steps window,
+  // so 3px from the window in all, Julian)
+  const viewW = (availableWidth ?? 0) + 16 - ADD_EDGE_GAP;
+  const room = wide ? leftRoom : 0;
+  // Desktop: always a little left of the centre, more the longer the numbers (0px with 1 digit … 20px with 11,
+  // Julian); too long for the area: moved left at least enough to end inside it; never further left than `room`
+  const longest = Math.max(num1.digits.length, num2.digits.length);
+  const cellSize = useCellSize();
+  const shiftFor = (w: number, want: number) => {
+    const need = w - viewW;
+    return need > 0 ? Math.min(room, Math.max(want, need)) : Math.min(want, room - need / 2);
+  };
+  // The board's left edge (from the area's left edge) for a width and a shift: centred, never past the area's left edge
+  const leftFor = (w: number, sh: number) => Math.max(0, (viewW - w) / 2) - sh;
+  // From 11 digits on the board grows only to the left (Julian): its right end stays where it was with 11 digits. The
+  // width with 11 digits is remembered when it is seen; if it wasn't, estimated (a cell, a gap and a comma slot)
+  const width11 = useRef<number | null>(null);
+  useEffect(() => { if (natural && longest === ADD_GROW_LEFT_FROM) width11.current = natural.w; }, [natural, longest]);
+  const right11 = (() => {
+    if (!wide || !natural || longest <= ADD_GROW_LEFT_FROM) return null;
+    const w11 = Math.min(viewW + room, width11.current ?? natural.w - (longest - ADD_GROW_LEFT_FROM) * (cellSize + G) - COMMA_SLOT - G);
+    return leftFor(w11, shiftFor(w11, (ADD_SHIFT_MAX * 10) / 11)) + w11;
+  })();
+  // Normal size unless the board can't fit even moved left as far as `room` allows (and, past 11 digits, ending where
+  // it ended with 11): then smaller, smoothly, down to 50%
+  const fit = !natural || !availableWidth ? 1
+    : wide ? Math.max(ADD_MIN_FIT_DESK, Math.min(1, (viewW + room) / natural.w, right11 === null ? 1 : (right11 + room) / natural.w))
+    // tablet / phone: fit the screen
+    : Math.max(ADD_MIN_FIT_SMALL, fitIn(availableWidth));
+  const W = natural ? natural.w * fit : 0;
+  // Steps window collapsed (Julian; desktop, tablet and phone): the numbers (from the first digit to the last) centred
+  // on the middle of the page, as far as the room allows (not past 15px after the controls column — on a phone, not
+  // past the area's left edge — and not past its right edge). A negative shift moves the board right
+  const closedLeft = natural && pageMidX !== undefined
+    ? Math.min(viewW - W, Math.max(-leftRoom, pageMidX - (fit * (natural.dl + natural.dr)) / 2))
+    : 0;
+  const shift = !natural ? 0
+    : stepsClosed && pageMidX !== undefined ? Math.max(0, (viewW - W) / 2) - closedLeft
+    : !wide ? 0
+    : right11 === null ? shiftFor(W, (ADD_SHIFT_MAX * Math.max(0, longest - 1)) / 11)
+    : Math.min(room, Math.max(0, W - viewW, Math.max(0, (viewW - W) / 2) + W - right11));
+  useEffect(() => { if (natural) onNaturalWidth?.(natural.w); }, [natural, onNaturalWidth]);
+  const fitRef = useRef(1);
+  useEffect(() => { fitRef.current = fit; }, [fit]);
+  const [result, setResult] = useState<Record<number, ResultDigit>>({});
+  const [resultSign, setResultSign] = useState<1 | -1 | null>(null);
+  const [currentColumn, setCurrentColumn] = useState(-1);
+  const [computedColumns, setComputedColumns] = useState<Set<number>>(new Set());
+  const [badges, setBadges] = useState<Badge[]>([]);
+  // The operation's sign between the two digits being worked on (Julian): + or −, in the yellow / orange of the
+  // highlighted digits, moving from column to column with the work (columns with a 0 for a missing digit too)
+  const [opMark, setOpMark] = useState<{ col: number; sub: boolean } | null>(null);
+  // The 0 standing in for a missing digit (Julian): where one number has no digit in the column being worked on, a big
+  // 0 chip (green in addition, red in subtraction) sits in that number's empty cell; one chip, hopping left from
+  // column to column as the work moves on, and fading at the end
+  const [zero, setZero] = useState<{ col: number; row: 'top' | 'bottom'; sub: boolean; fading: boolean } | null>(null);
+  const zeroRef = useRef<HTMLDivElement>(null);
+  const zeroCol = zero?.col;
+  const zeroSeen = useRef(false);
+  useEffect(() => {
+    if (zeroCol === undefined) { zeroSeen.current = false; return; }
+    // the first time it pops in; after that every move is a hop (an arc up and down while it slides left)
+    if (zeroSeen.current) zeroRef.current?.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-60%)' }, { transform: 'translateY(0)' }], { duration: 700, easing: 'ease-in-out' });
+    zeroSeen.current = true;
+  }, [zeroCol]);
+  const [fadingCols, setFadingCols] = useState<Set<number>>(new Set());
+  const [flight, setFlight] = useState<FlightData | null>(null);
+  // Addition, a column that makes 10 or more: its sum is shown for a moment where the result goes (`sumChip`),
+  // then the units stay there and the tens (the carry) jumps in an arc to the next column's corner (`hop`)
+  // Subtraction, a column that has to borrow: the ten jumps from the top digit on the left onto this column's top digit,
+  // which then shows for a moment with the ten added (e.g. 13)
+  const [sumChip, setSumChip] = useState<{ x: number; y: number; text: string; lead: number; kind: BadgeKind; splitting: boolean } | null>(null);
+  // The column's calculation on the result row (Julian, like multiplication): "a + b =" (or "a − b =") just left of the
+  // result's cell, the result in the cell. The two digits and the sign first come down from the column (`fly`: copies
+  // from where they are to where they go in the line); then, in addition, the carry is added on the same line —
+  // "s + [ ] =", the green carry chip itself flying into the gap (`chip`). Screen px (drawn over the page, like the
+  // carry chips). `size`: the font size, scaled with the board
+  type ExprFly = { text: string; from: { x: number; y: number }; to: { x: number; y: number } | null; chip?: boolean };
+  const [expr, setExpr] = useState<{
+    key: string; right: number; y: number; cx: number; size: number;
+    parts: string[]; slot: boolean; shown: boolean; eq: boolean; result: string | null; fly: ExprFly[]; landed: boolean;
+  } | null>(null);
+  const exprPartRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const exprSlotRef = useRef<HTMLSpanElement>(null);
+  const opMarkRef = useRef<HTMLDivElement>(null);
+  const [hop, setHop] = useState<{ x0: number; y0: number; x1: number; y1: number; value: number | string; kind: BadgeKind; key: string } | null>(null);
+  // Subtraction, like on paper: a top digit whose value changed (it lent 1 to the right, or got a borrowed ten) is
+  // crossed out in red and its new value written small above it (column → new value). They fade when the result is done
+  const [crossed, setCrossed] = useState<Record<number, string>>({});
+  const [crossedFading, setCrossedFading] = useState(false);
+  // The rewritten problem shown on the board while (and after) explaining it; null = the numbers as entered
+  const [view, setView] = useState<RewrittenView | null>(null);
+  // While true, the two operand rows slide past each other (swap places); `swapDist` is how far, in px
+  const [swapping, setSwapping] = useState(false);
+  const [swapDist, setSwapDist] = useState(0);
+  // How long the rows take to swap (ms): 700, or 30% less while the problem is being rewritten at the start
+  const [swapMs, setSwapMs] = useState(700);
+  const row1Ref = useRef<HTMLDivElement>(null);
+  const row2Ref = useRef<HTMLDivElement>(null);
+
+  const carryRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const resultRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  // The top row's cells (for the borrowed ten's jump)
+  const topRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const bottomRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const lineRef = useRef<HTMLDivElement>(null);
+
+  // Shared grid for all rows, with one column reserved for the final carry
+  const layoutDec = Math.max(num1.decimalCount, num2.decimalCount);
+  const layoutInt = Math.max(intLength(num1), intLength(num2), 1) + 1;
+
+  // Left edge (px) of each column's slot inside a row, computed from the same widths the rows use:
+  // the 40px first column, digit cells, 12px commas, the decimal point (DOT_OUTER), and the gap between them
+  const cell = useCellSize();
+  const slotLeft: Record<number, number> = {};
+  {
+    let pos = 40 + G;
+    for (let j = layoutInt - 1; j >= 0; j--) {
+      slotLeft[layoutDec + j] = pos;
+      pos += cell + G;
+      if (j > 0 && j % 3 === 0) pos += COMMA_SLOT + G;
+    }
+    if (layoutDec > 0) {
+      pos += DOT_OUTER + G;
+      for (let col = layoutDec - 1; col >= 0; col--) {
+        slotLeft[col] = pos;
+        pos += cell + G;
+      }
+    }
+  }
+
+  // The explanation, started when `run` turns true. Stopping (or any reset) remounts the board, which ends it
+  useEffect(() => {
+    if (!run) return;
+    let alive = true;
+    const runId = Date.now();
+    const a = num1, b = num2;
+    (async () => {
+      // React's strict mode (dev) mounts, cleans up and mounts again: let the throwaway run end here,
+      // before it announces its first step (otherwise that step shows twice)
+      await Promise.resolve();
+      if (!alive) return;
+      const wait = (ms: number) => new Promise<boolean>(resolve => {
+        pausableTimeout(() => resolve(alive), paced(ms));
+      });
+
+      const dec = Math.max(a.decimalCount, b.decimalCount);
+      const int = Math.max(intLength(a), intLength(b), 1);
+      const len = int + dec;
+
+      // Signed terms: N1, and N2 with the sign it really has in the sum (subtracting N2 = adding −N2)
+      const signA = a.sign;
+      const signB = (op === 'subtraction' ? -b.sign : b.sign) as 1 | -1;
+      const subtract = signA !== signB;
+
+      const fmt = (n: NumberData) => {
+        const i = intLength(n);
+        return n.digits.slice(0, i).join('') + (n.decimalCount ? '.' + n.digits.slice(i).join('') : '');
+      };
+      const show = (n: NumberData) => (n.sign < 0 ? `(−${fmt(n)})` : fmt(n));
+      const mag = (n: NumberData): NumberData => ({ ...n, sign: 1 });
+      const ea = fmt(a), eb = fmt(b);
+      const original = `${show(a)} ${op === 'subtraction' ? '−' : '+'} ${show(b)}`;
+
+      // Slides the two operand rows past each other, then shows them swapped
+      // What the board currently shows, and whether its rows are in the opposite order to N1 / N2
+      // (used at the end to animate back to the problem as entered)
+      let shown: RewrittenView | null = null;
+      let rowsSwapped = false;
+      const putView = (v: RewrittenView | null) => { shown = v; setView(v); };
+
+      // Slides the two operand rows past each other, then shows `next` (null = the numbers as entered)
+      // `k` scales the timing (REWRITE at the start, 1 when the rows go back at the end)
+      const swapRows = async (next: RewrittenView | null, k = 1): Promise<boolean> => {
+        const r1 = row1Ref.current?.getBoundingClientRect(), r2 = row2Ref.current?.getBoundingClientRect();
+        // measured on the screen: divided by the zoom, since the rows move inside the zoomed board
+        setSwapDist(r1 && r2 ? (r2.bottom - r1.bottom) / fitRef.current : 0);
+        setSwapMs(Math.round(700 * k));
+        setSwapping(true);
+        if (!(await wait(Math.round(750 * k)))) return false;
+        putView(next);
+        rowsSwapped = !rowsSwapped;
+        setSwapping(false);
+        return wait(Math.round(500 * k));
+      };
+      // Start timing. When the problem is rewritten first (signs taken out of the numbers, rows swapped, the brackets
+      // and the pink minus), those steps are 30% shorter; when it starts straight away, the start is 30% longer
+      const REWRITE = 0.7, START = 1.3;
+      let rewritten = false;
+
+      // The board is rewritten as the operation really done on the digits, in at most two steps:
+      //  1. the signs leave the numbers: adding a negative becomes a subtraction (positive number on top),
+      //     subtracting a negative becomes an addition, two negatives become −(… + …)
+      //  2. when the bottom number of a subtraction is the larger one, the rows swap and the minus goes in front: 3 − 8 = −(8 − 3)
+      let top: NumberData, bottom: NumberData, outerMinus: boolean;
+      if (!subtract) {
+        top = mag(a); bottom = mag(b); outerMinus = signA < 0;
+        if (op === 'subtraction' || signA < 0) {
+          const sum = `${ea} + ${eb}`;
+          onStatus(signA < 0
+            ? `${original} = −(${sum}): both parts are negative, so we add the numbers and keep the minus in front. We use carries.`
+            : `${original} = ${sum}: subtracting a negative number means adding it. We use carries.`);
+          putView({ top, bottom, op: 'addition', outerMinus });
+          rewritten = true;
+          if (!(await wait(3000 * REWRITE))) return;
+        }
+      } else {
+        // Positive number on top
+        const posFirst = signA > 0;
+        top = mag(posFirst ? a : b); bottom = mag(posFirst ? b : a); outerMinus = false;
+        const posText = fmt(top), negText = fmt(bottom);
+        if (!(op === 'subtraction' && signA > 0)) {
+          onStatus(op === 'addition'
+            ? `${original} = ${posText} − ${negText}: adding a negative number means subtracting it. We put the positive number, ${posText}, on top.`
+            : `${original} = ${posText} − ${negText}: subtracting a negative number means adding it, so we put the positive number, ${posText}, on top and subtract ${negText}.`);
+          if (posFirst) {
+            putView({ top, bottom, op: 'subtraction', outerMinus: false });
+          } else {
+            // The rows trade places so the positive number ends up on top
+            putView({ top: mag(a), bottom: mag(b), op: 'subtraction', outerMinus: false });
+            if (!(await swapRows({ top, bottom, op: 'subtraction', outerMinus: false }, REWRITE))) return;
+          }
+          rewritten = true;
+          if (!(await wait(2600 * REWRITE))) return;
+        }
+        // A larger number can't be taken from a smaller one column by column, so subtract the other way round
+        const width = Math.max(intLength(a), intLength(b), 1), decs = Math.max(a.decimalCount, b.decimalCount);
+        if (compareMagnitude(toColumns(top, width, decs), toColumns(bottom, width, decs)) < 0) {
+          onStatus(`${negText} is larger than ${posText}, so we swap them and subtract the other way round: ${posText} − ${negText} = −(${negText} − ${posText}). The minus stays in front of the result.`);
+          // (a plain positive subtraction like 3 − 8 has no rewrite yet: show it as entered before the swap)
+          putView({ top, bottom, op: 'subtraction', outerMinus: false });
+          [top, bottom] = [bottom, top];
+          outerMinus = true;
+          if (!(await swapRows({ top, bottom, op: 'subtraction', outerMinus: true }, REWRITE))) return;
+          rewritten = true;
+          if (!(await wait(2400 * REWRITE))) return;
+        }
+      }
+      const finalSign: 1 | -1 = outerMinus ? -1 : 1;
+      const topCols = toColumns(top, int, dec);
+      const bottomCols = toColumns(bottom, int, dec);
+
+      // The carry (or borrow) produced by a pair appears in its top-left corner.
+      // At the next pair it slides into that pair's top-right corner, where it is used,
+      // and at the pair after that it slowly fades out.
+      const kind: BadgeKind = subtract ? 'borrow' : 'carry';
+      let badgeSeq = 0;
+      const dropFaded = () => window.setTimeout(() => {
+        if (alive) setBadges(prev => prev.filter(x => !x.fading));
+      }, 1100);
+      const addBadge = (col: number, value: number) => {
+        const id = `b${runId}-${badgeSeq++}`;
+        // The new carry replaces the used one: the old one (top-right) slowly fades out
+        setBadges(prev => [...prev.map(x => (x.side === 'right' ? { ...x, fading: true } : x)), { id, col, side: 'left', value, kind, fading: false }]);
+        dropFaded();
+      };
+      const moveIncomingBadge = (col: number) => {
+        setBadges(prev => prev.map(x => {
+          if (x.fading) return x;
+          if (x.side === 'right') return { ...x, fading: true }; // used at the previous pair
+          return { ...x, col, side: 'right' };                    // moves to the current pair
+        }));
+        dropFaded();
+      };
+      const fadeAllBadges = () => {
+        setBadges(prev => prev.map(x => ({ ...x, fading: true })));
+        setZero(prev => (prev ? { ...prev, fading: true } : prev));
+        window.setTimeout(() => { if (alive) setZero(null); }, 1100);
+        dropFaded();
+        // The crossed-out digits go back to normal too
+        setCrossedFading(true);
+        window.setTimeout(() => {
+          if (alive) { setCrossed({}); setCrossedFading(false); }
+        }, 1100);
+      };
+
+      // The column's calculation on the result row (see `expr`)
+      const centre = (el: Element | null | undefined) => {
+        const r = el?.getBoundingClientRect();
+        return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null;
+      };
+      const frames = (n = 2) => new Promise<void>(r => { const f = (i: number) => (i ? requestAnimationFrame(() => f(i - 1)) : r()); f(n); });
+      let exprSeq = 0;
+      // The line ends 6px (board px, scaled) before the result's cell, on its middle; the font is the board's 22px, scaled
+      const exprPlace = (col: number) => {
+        const c = resultRefs.current[col]?.getBoundingClientRect();
+        if (!c) return null;
+        const kp = (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) / 16;
+        const f = fitRef.current;
+        return { right: c.left - 6 * kp * f, y: c.top + c.height / 2, cx: c.left + c.width / 2, size: 22 * f };
+      };
+      // "a op b =": the two digits and the sign come down from the column into the line, then "=" and the result
+      const showCalc = async (col: number, a: string, op: string, b: string, result: string, from: (ReturnType<typeof centre>)[]) => {
+        const place = exprPlace(col);
+        if (!place) return true;
+        const key = `e${runId}-${exprSeq++}`;
+        const base = { key, ...place, parts: [a, op, b], slot: false, shown: false, eq: false, result: null, fly: [] as ExprFly[], landed: false };
+        setExpr(base);
+        await frames();
+        const to = [0, 1, 2].map(i => centre(exprPartRefs.current[i]));
+        const fly: ExprFly[] = [a, op, b].map((text, i) => ({ text, from: from[i] ?? to[i] ?? { x: place.cx, y: place.y }, to: null }));
+        setExpr({ ...base, fly });
+        await frames();
+        setExpr({ ...base, fly: fly.map((f, i) => ({ ...f, to: to[i] ?? f.from })) });
+        if (!(await wait(700))) return false;
+        setExpr({ ...base, shown: true });
+        if (!(await wait(300))) return false;
+        setExpr({ ...base, shown: true, eq: true, result });
+        return wait(1100);
+      };
+      // Addition with a carry: "s + [ ] =", the green carry chip flies from its corner into the gap, then "= total"
+      const addCarry = async (col: number, s: number, c: number) => {
+        const place = exprPlace(col);
+        const sl = carryRefs.current[col]?.getBoundingClientRect();
+        if (!place || !sl) return true;
+        const kp = (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) / 16;
+        const f = fitRef.current;
+        // the used carry sits in the column's top-right corner, at 80% (origin bottom right)
+        const from = { x: sl.right - (1 + 0.4 * CARRY_CHIP) * kp * f, y: sl.bottom + (9 - 0.4 * CARRY_CHIP) * kp * f };
+        const key = `e${runId}-${exprSeq++}`;
+        const base = { key, ...place, parts: [String(s), '+'], slot: true, shown: true, eq: false, result: null, fly: [] as ExprFly[], landed: false };
+        setExpr(base);
+        await frames();
+        const to = centre(exprSlotRef.current) ?? from;
+        setBadges(prev => prev.map(x => (x.side === 'right' && !x.fading ? { ...x, fading: true } : x)));
+        dropFaded();
+        const chip: ExprFly = { text: String(c), from, to: null, chip: true };
+        setExpr({ ...base, fly: [chip] });
+        await frames();
+        setExpr({ ...base, fly: [{ ...chip, to }] });
+        if (!(await wait(900))) return false;
+        setExpr({ ...base, fly: [{ ...chip, to }], landed: true, eq: true, result: String(s + c) });
+        return wait(1300);
+      };
+
+      if (!(await wait(rewritten ? 600 : 600 * START))) return;
+
+
+      const res: Record<number, ResultDigit> = {};
+      let carry = 0;
+      let allZero = true;
+      let calcFrom: (ReturnType<typeof centre>)[] = [];
+
+      for (let col = 0; col < len; col++) {
+        const idx = len - 1 - col;
+        const t = topCols[idx], btm = bottomCols[idx];
+        setCurrentColumn(col);
+        setOpMark({ col, sub: subtract });
+        moveIncomingBadge(col);
+        const missing: 'top' | 'bottom' | null = !digitAt(top, col, dec) ? 'top' : !digitAt(bottom, col, dec) ? 'bottom' : null;
+        if (missing) setZero({ col, row: missing, sub: subtract, fading: false });
+        if (!(await wait(col === 0 && !rewritten ? 1000 * START : 1000))) return;
+
+        // Subtraction: this digit lent 1 to the column on the right. The red mark drops onto it, and the digit is
+        // crossed out with its new value above it (9 → 8). A 0 has nothing to give yet: it borrows first (below)
+        if (subtract && carry) {
+          const to = topRefs.current[col]?.getBoundingClientRect(), sl = carryRefs.current[col]?.getBoundingClientRect();
+          if (to && sl) {
+            setBadges(prev => prev.map(x => (x.side === 'right' && !x.fading ? { ...x, fading: true } : x)));
+            dropFaded();
+            setHop({ x0: sl.right - 11, y0: sl.bottom - 1, x1: to.left + to.width / 2, y1: to.top + to.height / 2, value: '−1', kind: 'borrow', key: `m${runId}-${col}` });
+            if (!(await wait(HOP_MS))) return;
+            setHop(null);
+            if (t > 0) {
+              setCrossed(prev => ({ ...prev, [col]: String(t - 1) }));
+              onStatus(`${t} lent 1 to the column on the right, so it is now ${t - 1}.`);
+              if (!(await wait(1000))) return;
+            }
+          }
+        }
+
+        let digit: number, next: number;
+        if (!subtract) {
+          const sum = t + btm + carry;
+          digit = sum % 10;
+          next = sum >= 10 ? 1 : 0;
+          onStatus(`${t} + ${btm}${carry ? ' + 1' : ''} = ${sum} → write ${digit}${next ? ', carry 1' : ''}`);
+        } else {
+          const raw = t - btm - carry;
+          next = raw < 0 ? 1 : 0;
+          digit = raw < 0 ? raw + 10 : raw;
+          const left = carry ? `${t} − 1` : `${t}`;
+          onStatus(next
+            ? `${left} is less than ${btm} → borrow 10: ${t + 10 - carry} − ${btm} = ${digit}`
+            : `${left} − ${btm} = ${digit}`);
+        }
+
+        // The calculation on the result row (Julian). Subtraction with a borrow: the borrow is done first, up in the column
+        // (below), and the calculation comes down after it with the borrowed ten
+        {
+          const missing2 = !digitAt(top, col, dec) ? 'top' : !digitAt(bottom, col, dec) ? 'bottom' : null;
+          const from = [
+            centre(missing2 === 'top' ? zeroRef.current : topRefs.current[col]),
+            centre(opMarkRef.current),
+            centre(missing2 === 'bottom' ? zeroRef.current : bottomRefs.current[col]),
+          ];
+          if (!subtract) {
+            if (!(await showCalc(col, String(t), '+', String(btm), String(t + btm), from))) return;
+            if (carry && !(await addCarry(col, t + btm, carry))) return;
+            setExpr(null);
+          } else if (!next) {
+            if (!(await showCalc(col, String(t - carry), '−', String(btm), String(digit), from))) return;
+            setExpr(null);
+          }
+          calcFrom = from;
+        }
+
+        // First the result digit, then the new carry (if any) in the top-left corner
+        if (digit !== 0) allZero = false;
+        const cellEl = resultRefs.current[col], slotEl = carryRefs.current[col];
+        if (!subtract && next && cellEl && slotEl) {
+          // The whole sum (e.g. 12) appears where the result digit goes
+          const c = cellEl.getBoundingClientRect(), sl = slotEl.getBoundingClientRect();
+          const x = c.left + c.width / 2, y = c.top + c.height / 2;
+          setSumChip({ x, y, text: String(t + btm + carry), lead: 1, kind: 'carry', splitting: false });
+          if (!(await wait(900))) return;
+          // It splits: the units become the result digit, the tens jump to this column's carry corner
+          setSumChip(prev => (prev ? { ...prev, splitting: true } : prev));
+          res[col] = { value: digit, id: `r${runId}-${col}` };
+          setResult({ ...res });
+          setComputedColumns(prev => new Set(prev).add(col));
+          // to the centre of the carry chip's place: 1px in from the slot's left, its bottom 9px under the slot (screen px)
+          const kp = (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) / 16;
+          setHop({ x0: x - 0.3 * c.width, y0: y, x1: sl.left + (1 + CARRY_CHIP / 2) * kp, y1: sl.bottom + (9 - CARRY_CHIP / 2) * kp, value: next, kind: 'carry', key: `h${runId}-${col}` });
+          if (!(await wait(HOP_MS))) return;
+          setSumChip(null);
+          setHop(null);
+          addBadge(col, next);
+          if (!(await wait(700))) return;
+          carry = next;
+        } else if (subtract && next && topRefs.current[col] && topRefs.current[col + 1]) {
+          // Borrow: the ten jumps from the top digit on the left onto this column's top digit (e.g. 3 becomes 13)
+          const from = topRefs.current[col + 1]!.getBoundingClientRect(), to = topRefs.current[col]!.getBoundingClientRect();
+          // (just above the digit, so the digit itself stays readable)
+          const x = to.left + to.width / 2, y = to.top - 16;
+          setHop({ x0: from.left + from.width / 2, y0: from.top + from.height / 2, x1: x, y1: y, value: 10, kind: 'borrow', key: `h${runId}-${col}` });
+          if (!(await wait(HOP_MS))) return;
+          setHop(null);
+          const withTen = String(t - carry + 10);
+          setSumChip({ x, y, text: withTen, lead: withTen.length > 1 ? 1 : 0, kind: 'borrow', splitting: false });
+          if (!(await wait(1000))) return;
+          // Then the digit is crossed out with its new value above it, the difference is written, and the borrow mark
+          // goes to the corner as before
+          setSumChip(prev => (prev ? { ...prev, splitting: true } : prev));
+          setCrossed(prev => ({ ...prev, [col]: withTen }));
+          if (!(await wait(600))) return;
+          setSumChip(null);
+          // Then the calculation comes down with the borrowed ten (Julian): "13 − 7 =", 6
+          if (!(await showCalc(col, withTen, '−', String(btm), String(digit), calcFrom))) return;
+          setExpr(null);
+          res[col] = { value: digit, id: `r${runId}-${col}` };
+          setResult({ ...res });
+          setComputedColumns(prev => new Set(prev).add(col));
+          if (!(await wait(600))) return;
+          setSumChip(null);
+          carry = next;
+          addBadge(col, carry);
+          if (!(await wait(900))) return;
+        } else {
+          res[col] = { value: digit, id: `r${runId}-${col}` };
+          setResult({ ...res });
+          setComputedColumns(prev => new Set(prev).add(col));
+          if (!(await wait(1000))) return;
+
+          carry = next;
+          if (carry) {
+            addBadge(col, carry);
+            if (!(await wait(1000))) return;
+          }
+        }
+      }
+      setCurrentColumn(-1);
+      setOpMark(null);
+
+      const lastCol = carry ? len : len - 1;
+      if (carry) {
+        onStatus('The last carry moves left, drops below the line and becomes the first digit of the result.');
+        const startEl = carryRefs.current[len - 1];
+        const endEl = resultRefs.current[len];
+        if (startEl && endEl) {
+          const s = startEl.getBoundingClientRect();
+          const e = endEl.getBoundingClientRect();
+          const kp = (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) / 16;
+          const startX = s.left + (1 + CARRY_CHIP / 2) * kp, startY = s.bottom + (9 - CARRY_CHIP / 2) * kp;
+          const endX = e.left + e.width / 2, endY = e.top + e.height / 2;
+          // When the carry crosses the dividing line: the first 40% of the time is the move to the left,
+          // the rest is the (linear) drop, so we can work out exactly when it reaches the line.
+          const lineY = lineRef.current ? lineRef.current.getBoundingClientRect().bottom : (startY + endY) / 2;
+          const drop = endY - startY;
+          const crossing = 0.4 + 0.6 * Math.min(1, Math.max(0, drop > 0 ? (lineY - startY) / drop : 1));
+          setBadges(prev => prev.filter(x => !(x.col === len - 1 && x.side === 'left')));
+          setFlight({ startX, startY, endX, endY, value: carry });
+          if (!(await wait(Math.round(FLIGHT_MS * crossing)))) return;
+        }
+        res[len] = { value: carry, id: `r${runId}-${len}` };
+        allZero = false;
+        setResult({ ...res });
+        setFlight(null);
+        if (!(await wait(800))) return;
+      }
+      fadeAllBadges();
+
+      // Leading zeros disappear (the units digit always stays)
+      const fading = new Set<number>();
+      for (let c = lastCol; c > dec; c--) {
+        if (res[c].value === 0) fading.add(c); else break;
+      }
+      if (fading.size > 0) {
+        onStatus('Leading zeros are removed.');
+        setFadingCols(fading);
+        if (!(await wait(1000))) return;
+        fading.forEach(c => { delete res[c]; });
+        setResult({ ...res });
+        setFadingCols(new Set());
+      }
+
+      setResultSign(allZero ? 1 : finalSign);
+      const resultDigits = Object.keys(res).map(Number).sort((x, y) => y - x).map(c => res[c].value).join('');
+      const resultText = formatNumber(resultDigits, dec, allZero ? 1 : finalSign);
+
+      // If the board was rewritten, it goes back to the problem as entered, so it's clear where we started:
+      // a pause on the worked form, then the brackets and the pink minus go, the rows slide back if they were
+      // swapped, and the signs return. The result stays where it is.
+      const worked = shown as RewrittenView | null;
+      if (worked) {
+        const plain = formatNumber(resultDigits, dec, 1);
+        onStatus(`So ${fmt(worked.top)} ${worked.op === 'addition' ? '+' : '−'} ${fmt(worked.bottom)} = ${plain}${outerMinus && !allZero ? `, and with the minus in front the result is ${resultText}` : ''}.`);
+        if (!(await wait(2000))) return;
+        if (rowsSwapped) {
+          if (!(await swapRows(null))) return;
+        } else {
+          putView(null);
+          if (!(await wait(600))) return;
+        }
+        onStatus(`So ${original} = ${resultText}.`);
+        if (!(await wait(1200))) return;
+      }
+      onStatus(doneMessage(resultText));
+      onDone();
+
+    })();
+    return () => { alive = false; };
+    // Runs once per start: the numbers can't change while it runs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run]);
+
+  // Draws a row's slots on the shared grid: integer digits (with commas), point, decimals
+  const renderSlots = (key: string, cell: (col: number) => ReactNode, commaVisible: (col: number) => boolean, dot: DotState) => {
+    const out: ReactNode[] = [];
+    for (let j = layoutInt - 1; j >= 0; j--) {
+      const col = layoutDec + j;
+      out.push(<Fragment key={`${key}-c${col}`}>{cell(col)}</Fragment>);
+      if (j > 0 && j % 3 === 0) out.push(<CommaSeparator key={`${key}-comma${col}`} visible={commaVisible(col)} />);
+    }
+    if (layoutDec > 0) {
+      out.push(<DecimalPoint key={`${key}-dot`} state={dot} />);
+      for (let col = layoutDec - 1; col >= 0; col--) out.push(<Fragment key={`${key}-c${col}`}>{cell(col)}</Fragment>);
+    }
+    return out;
+  };
+
+  const renderNumberRow = (n: NumberData, isNum1: boolean) => {
+    const which = isNum1 ? 'n1' : 'n2';
+    // While the rows swap places, every cell of the top row slides down and every cell of the bottom row slides up
+    const move: CSSProperties | undefined = swapping
+      ? { transform: `translateY(${isNum1 ? swapDist : -swapDist}px)`, transition: `transform ${swapMs}ms ease-in-out` }
+      : undefined;
+    return renderSlots(
+      which,
+      col => (
+        <div ref={(el: HTMLDivElement | null) => { (isNum1 ? topRefs : bottomRefs).current[col] = el; }} className="relative shrink-0" style={move}>
+          {numberCell(n, isNum1, which, col)}
+          {/* Crossed out in red, the new value written small above it (subtraction, see `crossed`).
+              (These cells are positioned, so the +/− sign buttons sit above them with z-20, or they would cover them) */}
+          {isNum1 && crossed[col] !== undefined && (
+            <div aria-hidden="true" className={`pointer-events-none absolute inset-0 z-30 transition-opacity duration-1000 ${crossedFading ? 'opacity-0' : 'opacity-100'}`}>
+              <svg className="absolute inset-0 w-full h-full animate-pop-in" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <line x1="22" y1="80" x2="78" y2="20" stroke="#f87171" strokeWidth="3" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+              </svg>
+              {/* Moved a little right while a borrow mark (a 0 one too) sits in this column's top-left corner, so it isn't
+                  covered */}
+              <span className={`absolute ${badges.some(x => x.col === col && x.side === 'left' && !x.fading) ? 'left-[66%]' : 'left-1/2'} -translate-x-1/2 -top-5 text-[15px] font-black leading-none text-red-400 drop-shadow-[0_0_6px_rgba(248,113,113,0.6)] transition-[left] duration-300 animate-pop-in`}>{crossed[col]}</span>
+            </div>
+          )}
+        </div>
+      ),
+      col => digitAt(n, col, layoutDec) !== null,
+      n.decimalCount > 0 ? 'on' : layoutDec > 0 ? 'dim' : 'hidden',
+    );
+  };
+
+  const numberCell = (n: NumberData, isNum1: boolean, which: 'n1' | 'n2', col: number) => {
+        const d = digitAt(n, col, layoutDec);
+        if (!d) return <EmptyCell />;
+        const variant = pickVariant({ highlighted: col === currentColumn, computed: computedColumns.has(col), ghost: d.index < 0 });
+        const digit = (
+          <Digit
+            digit={d.value}
+            variant={variant}
+            isNum1={isNum1}
+            onIncrement={() => onCycleDigit(which, d.index, 1)}
+            onDecrement={() => onCycleDigit(which, d.index, -1)}
+            hoverEditable={hoverEdit && !view && d.index >= 0}
+            operand
+          />
+        );
+        return digit;
+  };
+
+  const renderCarryRow = () => renderSlots(
+    'carry',
+    col => (
+      <div ref={(el: HTMLDivElement | null) => { carryRefs.current[col] = el; }} className={`${CELL_W} h-7 shrink-0`} />
+    ),
+    () => false,
+    'hidden',
+  );
+
+  // Carry chips live in a shared layer over the carry row, positioned
+  // by their column's slot, so they can slide from one column to another.
+  const badgeLeft = (x: Badge): number => {
+    const left = slotLeft[x.col] ?? 0;
+    return x.side === 'left' ? left + 1 : left + cell - (x.kind === 'borrow' ? BORROW_CHIP : CARRY_CHIP) - 1;
+  };
+
+  // The 0 chip in a row's empty cell (see `zero`): twice a carry chip (40px, 20px digit), centred in the cell
+  // The + / − between the rows (see `opMark`): centred in the 31px between N1's and N2's cells, in the column's slot
+  // the +/− between the highlighted pair: OP_MARK square, OP_BAR thick (nominal px; the gap between the rows is ~31)
+  const OP_MARK = 15, OP_BAR = 3.5;
+  const renderOpMark = () => opMark && (
+    <div
+      ref={opMarkRef}
+      aria-hidden="true"
+      className="pointer-events-none absolute z-30 flex items-center justify-center transition-[left] duration-500 ease-in-out"
+      style={toRem({ left: slotLeft[opMark.col] ?? 0, top: -31 / 2 - 12 + 2, width: cell, height: 24 })}
+    >
+      {/* drawn as two flat bars (no font glyph): sharp, no shadow, and big enough to read in the gap between the rows */}
+      <span className="relative block animate-pop-in" style={toRem({ width: OP_MARK, height: OP_MARK })}>
+        <span className="absolute left-0 bg-amber-400" style={toRem({ top: (OP_MARK - OP_BAR) / 2, width: OP_MARK, height: OP_BAR })} />
+        {!opMark.sub && <span className="absolute top-0 bg-amber-400" style={toRem({ left: (OP_MARK - OP_BAR) / 2, width: OP_BAR, height: OP_MARK })} />}
+      </span>
+    </div>
+  );
+
+  const renderZero = (row: 'top' | 'bottom') => zero && zero.row === row && (
+    <div
+      aria-hidden="true"
+      className={`pointer-events-none absolute bottom-0 z-30 flex items-center justify-center transition-[left,opacity] duration-700 ease-in-out ${zero.fading ? 'opacity-0' : 'opacity-100'}`}
+      style={toRem({ left: slotLeft[zero.col] ?? 0, width: cell, height: cell })}
+    >
+      <div ref={zeroRef} className={`w-10 h-10 flex items-center justify-center text-[20px] font-black text-white shadow-[0_0_10px_rgba(0,0,0,0.35)] border-2 rounded-lg animate-pop-in ${zero.sub ? 'bg-red-600 border-red-400' : 'bg-green-600 border-green-400'}`}>
+        0
+      </div>
+    </div>
+  );
+
+  const renderCarryBadges = () => badges.map(x => (
+    // The outer container handles sliding and fading, the inner one handles appearing
+    <div
+      key={x.id}
+      className={`absolute -bottom-2.25 z-40 origin-bottom-right transition-[left,opacity,scale] duration-800 ease-in-out ${x.fading ? 'opacity-0' : 'opacity-100'} ${x.side === 'right' ? 'scale-80' : 'scale-100'}`}
+      style={toRem({ left: badgeLeft(x) })}
+    >
+      <div className={`${chipSize(x.kind)} flex items-center justify-center font-black shadow-[0_0_10px_rgba(0,0,0,0.35)] border animate-pop-in ${x.kind === 'borrow' ? 'bg-red-600 border-red-400 text-white' : 'bg-green-600 border-green-400 text-white'}`}>
+        {x.value}
+      </div>
+    </div>
+  ));
+
+  const resultHasDot = layoutDec > 0 && (computedColumns.has(layoutDec - 1) || resultSign !== null);
+
+  const resultLeadCol = Math.max(-1, ...Object.keys(result).map(Number));
+
+  // All signs share one vertical line: 32px left of the leftmost first digit among the operands
+  // (the result's sign moves further left only when the result is longer than both operands)
+  const operandLead = layoutDec + Math.max(intLength(num1), intLength(num2)) - 1;
+  // A sign button (32px) 13px before the number's first digit (was 32px, then 16: Julian; the N1 / N2 tags move with it)
+  const signLeft = (col: number): number => (slotLeft[col] ?? 0) - 32 - 13;
+  const operandSignLeft = signLeft(operandLead);
+  const resultSignLeft = signLeft(Math.max(operandLead, resultLeadCol));
+
+  const renderResultRow = () => renderSlots(
+    'res',
+    col => {
+      const r = result[col];
+      return (
+        <div ref={(el: HTMLDivElement | null) => { resultRefs.current[col] = el; }} className={`${CELL} shrink-0 relative`}>
+          {r && (
+            <div key={r.id} className={fadingCols.has(col) ? 'animate-fade-out' : 'animate-pop-in'}>
+              <Digit digit={r.value} variant="result" />
+            </div>
+          )}
+        </div>
+      );
+    },
+    col => !!result[col] && !fadingCols.has(col),
+    resultHasDot ? 'on' : 'hidden',
+  );
+
+  // −( … ) layout, in px from the left edge of the board's rows: the rows move right by OUTER_PAD to make room for
+  // the pink minus and the opening bracket (12px before the operation sign, as before); the closing bracket sits
+  // 12px after the last digit; the dividing line then runs exactly from the minus to the closing bracket
+  const OUTER_PAD = 58;
+  const outerRight = OUTER_PAD + (slotLeft[0] ?? 0) + cell + 12 + 12; // right edge of the closing bracket
+
+  // The moving carry / borrow chips are drawn over the whole page (fixed, measured in screen px), outside any
+  // ancestor that would change what `fixed` means (the panel's backdrop blur)
+  const overlays = (
+    <>
+      {flight && (
+        <div
+          className={`fixed z-100 pointer-events-none animate-carry-flight flex items-center justify-center ${chipSize('carry')} font-black text-white shadow-[0_0_10px_rgba(0,0,0,0.35)] border bg-green-600 border-green-400`}
+          style={{
+            left: `calc(${flight.startX}px - ${CARRY_CHIP / 2 / 16}rem)`,
+            top: `calc(${flight.startY}px - ${CARRY_CHIP / 2 / 16}rem)`,
+            '--tx': `${flight.endX - flight.startX}px`,
+            '--ty': `${flight.endY - flight.startY}px`,
+          } as CustomCSSProperties}
+        >
+          {flight.value}
+        </div>
+      )}
+
+      {/* The column's calculation on the result row (see `expr`): the line, ending just left of the result's cell (hidden
+          while its parts are still coming down), the result in the cell, and the parts / the carry chip flying in */}
+      {expr && (
+        <>
+          <div
+            key={`${expr.key}l`}
+            className="fixed z-100 pointer-events-none whitespace-nowrap leading-none font-black text-[#58c7fe] flex items-center"
+            style={{ left: expr.right, top: expr.y, transform: 'translate(-100%, -50%)', fontSize: expr.size, opacity: expr.shown ? 1 : 0 }}
+          >
+            {expr.parts.map((p, i) => (
+              <span key={i} ref={el => { exprPartRefs.current[i] = el; }} className={i === 1 ? 'mx-[0.3em]' : ''}>{p}</span>
+            ))}
+            {expr.slot && (
+              <span ref={exprSlotRef} className="inline-block mx-[0.3em]" style={{ width: CARRY_CHIP * fitRef.current / 16 + 'rem', height: CARRY_CHIP * fitRef.current / 16 + 'rem' }} />
+            )}
+            <span className={`ml-[0.3em] ${expr.eq ? 'opacity-100' : 'opacity-0'}`}>=</span>
+          </div>
+          {expr.result !== null && (
+            <div
+              key={`${expr.key}r${expr.result}`}
+              className="fixed z-100 pointer-events-none whitespace-nowrap leading-none font-black text-[#58c7fe] animate-pop-in"
+              style={{ left: expr.cx, top: expr.y, translate: '-50% -50%', fontSize: expr.size }}
+            >
+              {expr.result}
+            </div>
+          )}
+          {expr.fly.map((f, i) => (f.chip ? (
+            <div
+              key={`${expr.key}f${i}`}
+              className={`fixed z-100 pointer-events-none flex items-center justify-center ${chipSize('carry')} font-black text-white shadow-[0_0_10px_rgba(0,0,0,0.35)] border bg-green-600 border-green-400 transition-[left,top] duration-800 ease-in-out`}
+              style={{ left: (f.to ?? f.from).x, top: (f.to ?? f.from).y, translate: '-50% -50%', scale: String(fitRef.current) }}
+            >
+              {f.text}
+            </div>
+          ) : (
+            <div
+              key={`${expr.key}f${i}`}
+              className={`fixed z-100 pointer-events-none whitespace-nowrap leading-none font-black text-[#58c7fe] transition-[left,top] duration-650 ease-in-out ${expr.shown ? 'opacity-0' : ''}`}
+              style={{ left: (f.to ?? f.from).x, top: (f.to ?? f.from).y, translate: '-50% -50%', fontSize: expr.size }}
+            >
+              {f.text}
+            </div>
+          )))}
+        </>
+      )}
+
+      {/* Addition: the column's sum (the carry in green). Subtraction: the top digit with the borrowed ten (in red) */}
+      {sumChip && <SumPop fixed x={sumChip.x} y={sumChip.y} text={sumChip.text} lead={sumChip.lead} kind={sumChip.kind} splitting={sumChip.splitting} />}
+      {hop && <CarryHop key={hop.key} fixed x0={hop.x0} y0={hop.y0} x1={hop.x1} y1={hop.y1} value={hop.value} kind={hop.kind} />}
+
+    </>
+  );
+
+  return (
+    <>
+    {/* Scaled to fit: the outer box takes the scaled size (so the page lays it out at that size), the board inside is
+        drawn at its natural size and scaled from its top-left corner */}
+    {/* Moved left (desktop): the outer box is `shift` narrower and the board starts `shift` before it, so the page lays
+        out (and scrolls) only what is really there (a transform would still count the old place for the scrollbar) */}
+    {/* Centred as if it were its full width (margin = half the room left), then the board moved `shift` to the left */}
+    {/* Centred in the width the board is laid out for (availableWidth + its 16px), not in the area's live width: while the
+        steps window slides open or closed the area's width changes every frame, and the digits must not follow it
+        (Julian; see toggleSteps in MathExplorer). With `smoothFit` they glide to their new place instead */}
+    <div
+      className={`${natural ? 'mr-auto' : 'mx-auto'} mb-auto shrink-0 ${smoothFit ? 'transition-[margin-left,width] duration-600 ease-[cubic-bezier(0.22,1,0.36,1)]' : ''}`}
+      style={natural ? { ...toRem({ width: natural.w * fit - shift, height: natural.h * fit }), marginLeft: `max(0px, calc((${availableWidth ? `${(availableWidth + 16) / REM_PX}rem` : '100%'} - ${(natural.w * fit) / REM_PX}rem) / 2))` } : undefined}
+    >
+    <div ref={rootRef} className={`relative w-max flex flex-col gap-4 pb-4 ${smoothFit ? 'transition-[padding,transform,margin-left] duration-600 ease-[cubic-bezier(0.22,1,0.36,1)]' : 'transition-[padding] duration-500'} ${view?.outerMinus ? 'pr-2 pl-[3.625rem] max-sm:pr-8' : 'pl-14'}`} style={{ transform: `scale(${fit})`, transformOrigin: 'top left', ...(shift ? toRem({ marginLeft: -shift }) : {}) }}>
+      {/* −( … ): when the result takes a minus in front, a pink minus and a pair of brackets around both numbers,
+          all of it above the dividing line and inside its length */}
+      {view?.outerMinus && (() => {
+        const top = 60 - 6;
+        const bottom = 60 + cell + 31 + Math.max(cell, cell >= 43 ? 48 : 40) + 6;
+        const bracket = (left: number, d: string) => (
+          <svg className="absolute text-pink-400 animate-pop-in" style={toRem({ left, top, width: 12, height: bottom - top })} viewBox="0 0 12 100" preserveAspectRatio="none" aria-hidden="true">
+            <path d={d} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          </svg>
+        );
+        return (
+          <>
+            <div className="absolute flex items-center justify-center w-6 text-[40px] leading-none font-bold text-pink-400 animate-pop-in" style={toRem({ left: 4, top: (top + bottom) / 2 - 22, height: 40 })} aria-hidden="true">−</div>
+            {bracket(OUTER_PAD - 24, 'M10 2 Q1 50 10 98')}
+            {bracket(outerRight - 12, 'M2 2 Q11 50 2 98')}
+            <span className="sr-only">The result takes a minus sign.</span>
+          </>
+        );
+      })()}
+      <div className="flex items-end gap-1.5 h-7 relative">
+        <div className="w-10 shrink-0" />
+        {renderCarryRow()}
+        {renderCarryBadges()}
+      </div>
+
+      <div ref={row1Ref} className="flex items-end gap-1.5 relative">
+        <div className="w-10 shrink-0" />
+        {/* Sign buttons and digit counts belong to the numbers as entered, so they hide while the board shows the rewritten problem */}
+        {!view && num1.digits.length > 0 && <div className="absolute z-20 top-1/2 -translate-y-1/2" style={toRem({ left: operandSignLeft })}>{renderSign('n1', num1.sign)}</div>}
+        {/* N1 ▶ / N2 ▶: on the left of its sign button, 8px from it (no column on the right any more, so the digits can
+            use the whole width); the board keeps room for it on the left (pl-14) */}
+        {!view && num1.digits.length > 0 && <div className="absolute z-20 top-1/2 -translate-y-1/2 -translate-x-full" style={toRem({ left: operandSignLeft - 8 })}><OperandTag label="N1" color="text-cyan-400" /></div>}
+        {renderNumberRow(view ? view.top : num1, true)}
+        {renderZero('top')}
+      </div>
+
+      <div ref={row2Ref} className="flex items-end gap-1.5 mt-3.75 relative">
+        {!view && num2.digits.length > 0 && <div className="absolute z-20 top-1/2 -translate-y-1/2" style={toRem({ left: operandSignLeft })}>{renderSign('n2', num2.sign)}</div>}
+        {/* The operation sign: left edge aligned with the start of the dividing line,
+            raised to halfway between the signs of N1 and N2
+            (half the row height + the gap between rows: 16px + 15px) */}
+        <div className="w-10 h-10 md:h-12 shrink-0 self-center relative">
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 text-cyan-500" style={toRem({ marginTop: -(cell + 31) / 2 })}>
+            <OpIcon op={view ? view.op : op} />
+            <span className="sr-only">{view ? (view.op === 'addition' ? 'Addition' : 'Subtraction') : (op === 'addition' ? 'Addition' : 'Subtraction')}</span>
+          </div>
+        </div>
+        {!view && num2.digits.length > 0 && <div className="absolute z-20 top-1/2 -translate-y-1/2 -translate-x-full" style={toRem({ left: operandSignLeft - 8 })}><OperandTag label="N2" color="text-pink-400" /></div>}
+        {renderNumberRow(view ? view.bottom : num2, false)}
+        {renderZero('bottom')}
+        {renderOpMark()}
+      </div>
+
+      {/* With −( … ) the line runs from the minus (4px in) to the closing bracket, so the whole group sits above it */}
+      <div ref={lineRef} className={`h-1 bg-zinc-700 my-2 rounded-full ${view?.outerMinus ? 'self-start' : ''}`}
+        style={view?.outerMinus ? toRem({ marginLeft: 4 - OUTER_PAD, width: outerRight }) : undefined} />
+
+      <div className="flex items-end gap-1.5 relative">
+        <div className="w-10 shrink-0" />
+        {resultSign === 1 && resultLeadCol >= 0 && (
+          <div className="absolute top-1/2 -translate-y-1/2" style={toRem({ left: resultSignLeft })}>
+            <ResultSign sign={resultSign} />
+          </div>
+        )}
+        {/* A negative result: the same pink minus as the one in front of −( … ), right before the result's first digit,
+            so it clearly belongs to the number */}
+        {resultSign === -1 && resultLeadCol >= 0 && (
+          <div
+            className="absolute top-1/2 -translate-y-1/2 flex items-center justify-center w-6 text-[40px] leading-none font-bold text-pink-400 animate-pop-in"
+            style={toRem({ left: (slotLeft[resultLeadCol] ?? 0) - 12 - 24, height: 40 })}
+          >
+            −<span className="sr-only">minus</span>
+          </div>
+        )}
+        {renderResultRow()}
+      </div>
+    </div>
+    </div>
+    {typeof document !== 'undefined' && createPortal(overlays, document.body)}
+    </>
+  );
+}

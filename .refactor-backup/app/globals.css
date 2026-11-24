@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+/* `desk`: a screen wide AND tall enough for the fixed-height panel (tablets, laptops, desktops).
+   Phones, and phones held sideways, get the scrolling layout instead. */
+@custom-variant desk (@media (width >= 48rem) and (height >= 37.5rem));
+
+html,
+body {
+  background: #09090b;
+}

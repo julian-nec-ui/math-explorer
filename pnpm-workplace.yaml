@@ -1,0 +1,7 @@
+# pnpm settings for the project.
+# pnpm runs packages' install scripts only if they are approved here.
+allowBuilds:
+  esbuild: true
+  sharp: true
+  "@tailwindcss/oxide": true
+  unrs-resolver: true

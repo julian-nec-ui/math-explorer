@@ -1,0 +1,141 @@
+{
+ "span": [
+  108,
+  449
+ ],
+ "locals": [
+  {
+   "name": "run",
+   "type": "boolean"
+  },
+  {
+   "name": "layout",
+   "type": "React.RefObject<{ x: (col: number) => number; yP: (i: number) => number; ySum: number; cell: number; chipX: (col: number, side: \"left\" | \"right\") => number; chipY: { top: (row: number) => number; }; yLine2: number; }>"
+  },
+  {
+   "name": "setChips",
+   "type": "React.Dispatch<React.SetStateAction<Chip[]>>"
+  },
+  {
+   "name": "setPop",
+   "type": "React.Dispatch<React.SetStateAction<{ x: number; y: number; text: string; lead: number; splitting: boolean; extra?: string; key?: string; } | null>>"
+  },
+  {
+   "name": "setHop",
+   "type": "React.Dispatch<React.SetStateAction<{ x0: number; y0: number; x1: number; y1: number; value: number; key: string; duration?: number; } | null>>"
+  },
+  {
+   "name": "num1",
+   "type": "NumberData"
+  },
+  {
+   "name": "num2",
+   "type": "NumberData"
+  },
+  {
+   "name": "m",
+   "type": "number"
+  },
+  {
+   "name": "n",
+   "type": "number"
+  },
+  {
+   "name": "setPartials",
+   "type": "React.Dispatch<React.SetStateAction<Record<number, Cell>[]>>"
+  },
+  {
+   "name": "onStatus",
+   "type": "(text: string) => void"
+  },
+  {
+   "name": "multi",
+   "type": "boolean"
+  },
+  {
+   "name": "setHl2",
+   "type": "React.Dispatch<React.SetStateAction<number>>"
+  },
+  {
+   "name": "setDone1",
+   "type": "React.Dispatch<React.SetStateAction<Set<number>>>"
+  },
+  {
+   "name": "setHl1",
+   "type": "React.Dispatch<React.SetStateAction<number>>"
+  },
+  {
+   "name": "setMulExpr",
+   "type": "React.Dispatch<React.SetStateAction<{ row: number; col: number; text: string; result: string; key: string; slot?: boolean; tail?: boolean; } | null>>"
+  },
+  {
+   "name": "slotRef",
+   "type": "React.RefObject<HTMLSpanElement | null>"
+  },
+  {
+   "name": "setDone2",
+   "type": "React.Dispatch<React.SetStateAction<Set<number>>>"
+  },
+  {
+   "name": "setSumCol",
+   "type": "React.Dispatch<React.SetStateAction<number>>"
+  },
+  {
+   "name": "setColAdd",
+   "type": "React.Dispatch<React.SetStateAction<{ col: number; top: number; bottom: number; plus: number[]; label: string | null; } | null>>"
+  },
+  {
+   "name": "setZeroFlash",
+   "type": "React.Dispatch<React.SetStateAction<{ col: number; rows: number[]; key: string; } | null>>"
+  },
+  {
+   "name": "setSum",
+   "type": "React.Dispatch<React.SetStateAction<Record<number, Cell>>>"
+  },
+  {
+   "name": "setFading",
+   "type": "React.Dispatch<React.SetStateAction<Set<number>>>"
+  },
+  {
+   "name": "setResultDec",
+   "type": "React.Dispatch<React.SetStateAction<number>>"
+  },
+  {
+   "name": "setResultSign",
+   "type": "React.Dispatch<React.SetStateAction<1 | -1 | null>>"
+  },
+  {
+   "name": "onDone",
+   "type": "() => void"
+  }
+ ],
+ "moduleLocals": [
+  "Cell"
+ ],
+ "imports": [
+  {
+   "name": "pausableTimeout",
+   "from": "../../math/shared"
+  },
+  {
+   "name": "paced",
+   "from": "../../math/shared"
+  },
+  {
+   "name": "CARRY_CHIP",
+   "from": "../../math/shared"
+  },
+  {
+   "name": "HOP_MS",
+   "from": "../../math/shared"
+  },
+  {
+   "name": "doneMessage",
+   "from": "../../math/shared"
+  },
+  {
+   "name": "formatNumber",
+   "from": "../../math/shared"
+  }
+ ]
+}

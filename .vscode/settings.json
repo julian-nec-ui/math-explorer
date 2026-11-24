@@ -1,0 +1,13 @@
+{
+  "workbench.colorCustomizations": {
+    "tab.activeBackground": "#01567e",
+    "tab.inactiveBackground": "#353735",
+    "tab.activeBorderTop": "#ffffff",
+    "modernEditorTab.activeBackground": "#d05e5e",
+    "modernEditorTab.inactiveBackground": "#9d4a4a",
+    "tab.activeForeground": "#ffffff",
+    "tab.inactiveForeground": "#bcdce9",
+    "tab.unfocusedActiveForeground": "#FFA500",
+    "tab.unfocusedInactiveForeground": "#91c8e2"
+  }
+}
