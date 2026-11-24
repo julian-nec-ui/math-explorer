@@ -96,6 +96,7 @@ jobs:
           out="next.config.$ext"
           [ "$ext" = "js" ] && exp="module.exports =" || exp="export default"
           cat > "$out" <<CFG
+          // @ts-nocheck
           $base
           const bp = process.env.BASE_PATH || "";
           $exp async (phase, ctx) => {
