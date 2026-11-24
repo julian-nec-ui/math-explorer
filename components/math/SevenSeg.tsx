@@ -2,27 +2,33 @@
 
 // The elapsed-time readout (Julian), in digits drawn after his sketch: straight bars of one thickness, each digit 3 wide
 // by 4 tall with equal halves, the 6 with its top bar and the 9 with its bottom bar, and every 90° corner — outer and
-// inner — slightly rounded. A digit is given as its bars (in a 180 × 240 grid, bars 40 thick); their union is traced
-// once into one outline with straight edges, and every corner of it gets a small curve (ROUND, 2% of the height).
+// inner — slightly rounded. A digit is given as its bars (in a 180 × 240 grid, bars 22.68 thick); their union is traced
+// once into one outline with straight edges, and every corner of it gets a small curve (ROUND, about 1px; never more than half of a side, so short sides keep their length).
 // No filter: the edges stay straight and anti-aliased.
 // Sizes in board px (rem): a digit is DIGIT_H tall; the separator's dots are 3px from the digits next to them.
 
 import type { ReactElement } from 'react';
 
-const W = 180, H = 240, T = 40, PAD = 12;
-const ROUND = H * 0.02;            // corner rounding: 2% of the digit's height (Julian), in grid units
+const W = 180, H = 240, PAD = 12;
+// the walls (the bars) 22.68 thick: 30%, 10% and 10% more thinner than the first 40; the separator's dots and the 0's middle
+// rectangle stay as they were at 25.2 (Julian)
+const T = 22.68, T_DOT = 25.2;
+const ROUND = H * 0.045;           // corner rounding, outer and inner corners alike: about 1 board px (Julian), in grid units
 export const DIGIT_H = 22;          // board px
 const K = DIGIT_H / H;              // board px per grid unit
-const DIGIT_GAP = 3;                // board px between two digits
-const COLON_GAP = 3;                // board px between a digit and the separator's dots (Julian)
+const DIGIT_GAP = 3.75;             // board px between the two digits of a pair (3, then 0.75 more: Julian)
+const COLON_GAP = 4;                // board px between a digit and the separator's dots (3, then 1 more: Julian)
 
 type Bar = [number, number, number, number];
 const top: Bar = [0, 0, W, T], mid: Bar = [0, (H - T) / 2, W, (H + T) / 2], bot: Bar = [0, H - T, W, H];
 const UL: Bar = [0, 0, T, (H + T) / 2], UR: Bar = [W - T, 0, W, (H + T) / 2];
 const LL: Bar = [0, (H - T) / 2, T, H], LR: Bar = [W - T, (H - T) / 2, W, H];
 const mid3: Bar = [T, (H - T) / 2, W, (H + T) / 2], one: Bar = [(W - T) / 2, 0, (W + T) / 2, H];
-// the 0's small rectangle in the middle of its hole (Julian): half a bar wide, a quarter of the digit tall
-const dot0: Bar = [(W - T / 2) / 2, (H - H / 4) / 2, (W + T / 2) / 2, (H + H / 4) / 2];
+// the 0's small rectangle in the middle of its hole (Julian): half a bar wide, a quarter of the digit tall and 2px more
+const PX = H / 22; // one board px, in grid units (a digit is 22px tall: DIGIT_H)
+// (Julian) 30% shorter than it was (H / 4 + 2px), still centred in the 0
+const DOT0_W = T_DOT / 2, DOT0_H = (H / 4 + 2 * PX) * 0.7;
+const dot0: Bar = [(W - DOT0_W) / 2, (H - DOT0_H) / 2, (W + DOT0_W) / 2, (H + DOT0_H) / 2];
 const BARS: Record<string, Bar[]> = {
   '0': [top, bot, UL, LL, UR, LR, dot0], '1': [one], '2': [top, UR, mid, LL, bot], '3': [top, mid3, bot, UR, LR],
   '4': [UL, mid, UR, LR], '5': [top, UL, mid, LR, bot], '6': [top, UL, LL, mid, bot, LR], '7': [top, UR, LR],
@@ -71,7 +77,7 @@ function outline(bars: Bar[]): string {
       });
       pts.forEach((v, k) => {
         const a = pts[(k - 1 + pts.length) % pts.length], b = pts[(k + 1) % pts.length];
-        const toward = (o: P): P => { const dx = o[0] - v[0], dy = o[1] - v[1], l = Math.hypot(dx, dy); return [v[0] + (dx / l) * ROUND, v[1] + (dy / l) * ROUND]; };
+        const toward = (o: P): P => { const dx = o[0] - v[0], dy = o[1] - v[1], l = Math.hypot(dx, dy), r = Math.min(ROUND, l / 2); return [v[0] + (dx / l) * r, v[1] + (dy / l) * r]; };
         const p = toward(a), q = toward(b);
         d += `${k === 0 ? 'M' : 'L'}${f(p[0])} ${f(p[1])}Q${f(v[0])} ${f(v[1])} ${f(q[0])} ${f(q[1])}`;
       });
@@ -97,7 +103,7 @@ function Glyph({ bars, w }: { bars: Bar[]; w: number }): ReactElement {
 }
 
 // The separator: two dots as thick as the bars, at 30% and 70% of the height
-const COLON: Bar[] = [[0, H * 0.3 - T / 2, T, H * 0.3 + T / 2], [0, H * 0.7 - T / 2, T, H * 0.7 + T / 2]];
+const COLON: Bar[] = [[0, H * 0.3 - T_DOT / 2, T_DOT, H * 0.3 + T_DOT / 2], [0, H * 0.7 - T_DOT / 2, T_DOT, H * 0.7 + T_DOT / 2]];
 
 // "00:00:00:0" — hours, minutes, seconds, tenths of a second
 export const formatElapsed = (ms: number): string => {
@@ -116,7 +122,7 @@ export default function SevenSeg({ text, label }: { text: string; label: string 
         const before = i === 0 ? 0 : ch === ':' || chars[i - 1] === ':' ? COLON_GAP : DIGIT_GAP;
         return (
           <span key={i} className="flex" style={{ marginLeft: `${before / 16}rem` }}>
-            {ch === ':' ? <Glyph bars={COLON} w={T} /> : <Glyph bars={BARS[ch] ?? []} w={W} />}
+            {ch === ':' ? <Glyph bars={COLON} w={T_DOT} /> : <Glyph bars={BARS[ch] ?? []} w={W} />}
           </span>
         );
       })}

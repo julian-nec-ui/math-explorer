@@ -9,15 +9,14 @@ Read this file first in a new conversation. It replaces the long history of the 
 - Julian writes in Romanian; answer in Romanian.
 
 ## How Julian wants to work
-- Julian's app runs at http://localhost:3001 (3000 is another project). With Claude in Chrome connected, check
+- Julian's app runs at http://localhost:3000 (dev server, his Chrome; earlier notes said 3001). With Claude in Chrome connected, check
   layout changes there (his font size, window and saved steps width), not only in the headless build.
 - **Write every changed file directly into the project on disk.** Then run `npx tsc --noEmit -p .` in the project
   (device shell) and fix any error before saying it's done.
   After writing, **check that the file on disk really has the new content** (md5sum or grep): once a file copied to the
   Mac kept its old content, tsc still passed, and Julian saw the old version in the app.
-- **Show only the changed files** in the explorer page (an artifact), each with its changed lines marked and short
-  notes in Romanian about what changed. Don't show unchanged files. Don't send separate screenshots or images; the
-  page should stay in the side panel.
+- **Show only the files changed in THIS iteration** in the explorer page (an artifact) — see "Pagina de modificări pe
+  iterații" below. A file that didn't change since the previous iteration is not shown (it is simply on disk).
 - The explorer page looks like VS Code: a narrow left column with the folder tree of the changed files only (folder
   icon on every folder, file icon on every file, changed files in red with N = new / M = modified, and a "double
   square" copy button beside each file that turns green once clicked). Clicking a file shows its code on the right,
@@ -484,3 +483,39 @@ Totul arată și se comportă exact ca înainte (verificat: HTML-ul paginii iden
 - `components/operations/fractions/` — `FractionBoard.tsx`, `model.tsx`, `script.ts` (`runFractions`).
 - Re-exporturi păstrate pentru compatibilitate: `DivisionBoard` exportă tipurile DivisionMethod/DivisionResult, `FractionBoard` exportă hasZeroDenominator.
 - `.refactor-backup/` (în .gitignore): copia de dinainte de refactorizare + uneltele de analiză; se poate șterge.
+
+## Pagina de modificări pe iterații (Julian, 24 nov 2026) — REGULĂ
+- Artifactul: https://claude.ai/artifact/PC7xyUKBvgMZVzLvdQwmYK („math-explorer changes”). Se republică același, după
+  fiecare iterație, apoi se deschide.
+- **O iterație = o cerere a lui Julian** (cu toate încercările mele pentru ea). Stânga: arborele DOAR cu fișierele care
+  s-au schimbat față de iterația anterioară (roșu = modificat, verde = nou), cu buton de copiere. Dreapta sus: diff în stil GitHub
+  față de iterația anterioară (nu față de un commit): doar liniile schimbate, cu 3 linii de context, golurile strânse în
+  antete „@@ -vechi +nou @@”, două coloane de numere (înainte / după), scoase = roșu cu −, adăugate = verde cu +; butonul
+  „Tot fișierul” arată tot fișierul cu aceleași marcaje. Dreapta jos: aplicația reală (iframe srcDoc).
+- Un fișier neschimbat în iterația curentă NU apare pe pagină; e scris pe disc și rămâne acolo.
+- Fișierele se scriu direct în proiect pe disc (device shell), apoi `npx tsc --noEmit -p .`, apoi se verifică pe disc.
+- Cum se construiește (în workspace-ul din cloud, nu în proiect): toate sursele se aduc cu device_stage_files;
+  `/tmp/claude-0/mxiter/prev/` = instantaneul iterației anterioare. `build.sh "titlu"` compară sursele curente cu
+  instantaneul → lista de fișiere schimbate + bazele pentru diff, construiește pagina; după publicare
+  `build.sh commit` salvează instantaneul nou și crește numărul iterației. Dacă workspace-ul s-a pierdut: instantaneul
+  se reface din sursele curente (iterația începe de la zero).
+- NU afișa comenzi git și NU lista schimbările în chat (Julian face git singur; pagina arată schimbările). Site-ul de pe
+  GitHub Pages se actualizează doar după push-ul lui.
+
+## Rotițele de cifre lângă N1 / N2 (OperandDrum.tsx, 24 nov 2026)
+- Tamburii N1 / N2 Digits stau pe tablă, în stânga etichetelor N1 / N2 (fracții: o coloană numărător/numitor în
+  stânga fiecărei fracții). Cutia din coloana din stânga a dispărut.
+- Tabla e ținută de etichetele N1 / N2 (`data-tag`): ele stau la 66 px de tablă (−1px) după marginea dreaptă a unei
+  coloane de 8rem (aceeași în toate operațiile), oricâte cifre, cu fereastra de pași deschisă sau nu (md în sus).
+  Tamburii atârnă în stânga etichetelor (gap 15 px de tablă = 0.9375rem, DRUM_REACH): mutarea lor NU mută nimic altceva.
+- Când tabla se micșorează, tamburii se micșorează mult mai puțin (drumScaleFor: 100% până la 75%, apoi spre max. 80%).
+- Linia orizontală de sub operanzi pornește de la marginea stângă a tamburilor (adunare, scădere, înmulțire).
+- Coloana de butoane coboară sub operanzi: marginea de sus a INTEGER/FLOAT la 25 px sub linia orizontală (împărțire:
+  sub mijlocul lui „=”); fracțiile au rămas cum erau. Cronometrul e sub Pause, la 25 px, centrat.
+
+## Lecție: px vs rem (24 nov 2026)
+- Root font-ul lui Julian e 22px: tot ce e pe tablă e în px de tablă = rem (toRem, × 22/16). O distanță scrisă în px
+  CSS ficși (ex. `gap-[15px]`) NU crește odată cu tabla: „mută 5px” a devenit ~1px la el. Pe tablă: rem
+  (`gap-[0.9375rem]`) sau toRem. Verifică mereu în Chrome-ul lui (localhost:3000), după reîncărcare: o parte din poziții
+  se măsoară doar la încărcare, iar actualizarea automată (HMR) nu le reface.
+

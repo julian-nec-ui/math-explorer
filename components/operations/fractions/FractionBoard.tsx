@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react';
-import { CarryHop, Digit, OpIcon, numberValue, type DigitVariant, type FracPart } from '../../math/shared';
+import { CarryHop, Digit, OpIcon, OperandDrum, numberValue, type DigitVariant, type FracPart } from '../../math/shared';
 import { Bracket, Crossable, EXPR_GAP, Eq, FR_HOP_END, FR_HOP_MS, FR_LAND_MS, FactorChip, type Frac, FracView, type FractionBoardProps, type Hop, MAX_WHOLE_PIECES, MIN_FIT, type Mark, Mul, Num, Paren, SignMark, SmallEq, Times, WarningIcon, gcd, lcm, primeFactors } from './model';
 import { runFractions } from './script';
 export { hasZeroDenominator } from './model';
@@ -156,12 +156,16 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
             don't fit side by side, the second goes under the first and the + stays after the first */}
         <div className="flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-2">
           <div className="flex items-stretch gap-2">
+            {/* How many digits its numerator and denominator have (see OperandDrum) */}
+            <div className="relative right-[21px] flex flex-col justify-center gap-3 mr-1"><OperandDrum part="n1" /><OperandDrum part="d1" /></div>
             <Bracket side="left" />
             <div className="flex items-center gap-2">{renderSign('n1', num1.sign)}{problemFrac('n1', f1, amp1)}</div>
             <Bracket side="right" />
           </div>
           <span className="text-cyan-500"><OpIcon op="addition" /></span>
           <div className="flex items-stretch gap-2">
+            {/* How many digits its numerator and denominator have (see OperandDrum) */}
+            <div className="relative right-[21px] flex flex-col justify-center gap-3 mr-1"><OperandDrum part="n2" /><OperandDrum part="d2" /></div>
             <Bracket side="left" />
             <div className="flex items-center gap-2">{renderSign('n2', num2.sign)}{problemFrac('n2', f2, amp2)}</div>
             <Bracket side="right" />

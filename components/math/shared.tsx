@@ -7,6 +7,7 @@ export * from './layout';
 export * from './numbers';
 export * from './RollingDigit';
 export * from './Drum';
+export * from './OperandDrum';
 export * from './Digit';
 export * from './marks';
 export * from './chips';

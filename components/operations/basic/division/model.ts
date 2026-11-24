@@ -5,10 +5,26 @@ export interface Cell { value: number; id: string; col?: number; } // col: the d
 
 // A row under the dividend: the product being subtracted, or the remainder (with brought-down digits).
 // Digits are keyed by the dividend column they sit under (0 = leftmost digit).
-export interface WorkRow { id: string; kind: 'product' | 'rem'; y: number; cells: Record<number, Cell>; minusAt?: number; }
-export interface Line { id: string; y: number; from: number; to: number; }
-export interface Chip { id: string; col: number; side: 'left' | 'right'; rowY: number; value: number; fading: boolean; }
+// dx: drawn this far right of its columns (board px: the subtraction worked out on the side is to the left); move: glides
+// when its place changes
+export interface WorkRow { id: string; kind: 'product' | 'rem'; y: number; cells: Record<number, Cell>; minusAt?: number; dx?: number; move?: boolean; fading?: boolean;
+  // subtraction, like on paper: a top digit whose value changed is crossed out, its new value small above it (column → value)
+  crossed?: Record<number, string>; }
+export interface Line { id: string; y: number; from: number; to: number; dx?: number; }
+export interface Chip { id: string; col: number; side: 'left' | 'right'; rowY: number; value: number; fading: boolean; dx?: number; }
 export interface Mover { id: string; value: number; col: number; y: number; }
+// The multiplication worked out on the side, under the work (Julian): the divisor, × the quotient digit, a line, and the
+// product written digit by digit from the right; then the product rises into its place under the current number.
+// All right-aligned on column k; `shown`: how many product digits are written so far; `active`: the divisor digit being
+// multiplied (its index), if any; `fly`: the product is moving up to `prodY`
+export interface SideMul { id: string; k: number; y: number; prodY: number; divisor: number[]; q: number; prod: number[]; shown: number; active: number | null; carry: number; carryAt?: number; fly: boolean;
+  // as in addition: the column's sum popping up where its digit goes (its tens green), and the carry hopping (board px)
+  pop?: { x: number; y: number; text: string; lead: number; splitting: boolean; extra?: string } | null;
+  hop?: { x0: number; y0: number; x1: number; y1: number; value: number; key: string } | null;
+  // as in addition, the column's calculation written on the product row, ending just left of the digit's cell: "3 × 9 ="
+  // with the result in the cell; with a carry "27 + [ ] =", the carry chip flying from its corner into the gap (`chip`)
+  expr?: { key: string; right: number; y: number; cx: number; parts: string[]; slot: boolean; eq: boolean; result: string | null } | null;
+  chip?: { x: number; y: number; value: number } | null; }
 
 // The result (Julian): with a remainder (whole numbers: stop at the units and say what is left), or with decimals:
 // the division goes on after the decimal point with brought-down zeros, for at most this many decimal places in the

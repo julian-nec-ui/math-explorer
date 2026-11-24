@@ -6,16 +6,18 @@
 // Like the other boards it starts when `run` turns true, reports each step with `onStatus` and calls `onDone` at the
 // end; the page remounts it (new key) to clear it.
 
-import { useState, useEffect, useRef, Fragment, type CSSProperties, type ReactElement, type ReactNode } from 'react';
+import { useContext, useState, useEffect, useRef, Fragment, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { CELL, CELL_W, REM_PX, OperandTag, CarryHop, Digit, SumPop, OpIcon, ResultSign, toRem, useCellSize, intLength, CARRY_CHIP, BORROW_CHIP, chipSize, pickVariant, type NumberData, type BadgeKind } from '../../math/shared';
+import { CELL, CELL_W, REM_PX, OperandTag, OperandDrum, DigitDrums, DrumZoom, drumScaleFor, DRUM_REACH, DRUM_W, CarryHop, Digit, SumPop, OpIcon, ResultSign, toRem, useCellSize, intLength, CARRY_CHIP, BORROW_CHIP, chipSize, pickVariant, type NumberData, type BadgeKind } from '../../math/shared';
 import { type AddSubBoardProps, type Badge, COMMA_SLOT, CommaSeparator, type CustomCSSProperties, DOT_OUTER, DecimalPoint, type DotState, EmptyCell, type ExprFly, type FlightData, G, type ResultDigit, type RewrittenView, digitAt } from './addsub/model';
 import { runAddSub } from './addsub/script';
 import { useAddSubFit } from './addsub/useFit';
 import { OP_BAR, OP_MARK } from './geometry';
 
 export default function AddSubBoard({ op, num1, num2, run, onStatus, onDone, renderSign, onCycleDigit, hoverEdit = false, availableWidth, leftRoom = 0, stepsClosed = false, pageMidX, smoothFit = false, onNaturalWidth }: AddSubBoardProps): ReactElement {
-  const { rootRef, natural, fit, shift, fitRef } = useAddSubFit({ num1, num2, availableWidth, leftRoom, stepsClosed, pageMidX, onNaturalWidth });
+  // The digit-count drums sit left of the N1 / N2 tags: the board keeps room for them too (see OperandDrum)
+  const hasDrums = !!useContext(DigitDrums);
+  const { rootRef, natural, fit, shift, fitRef, drop } = useAddSubFit({ num1, num2, availableWidth, leftRoom, stepsClosed, pageMidX, onNaturalWidth });
   const [result, setResult] = useState<Record<number, ResultDigit>>({});
   const [resultSign, setResultSign] = useState<1 | -1 | null>(null);
   const [currentColumn, setCurrentColumn] = useState(-1);
@@ -335,7 +337,7 @@ export default function AddSubBoard({ op, num1, num2, run, onStatus, onDone, ren
   );
 
   return (
-    <>
+    <DrumZoom.Provider value={drumScaleFor(fit) / fit}>
     {/* Scaled to fit: the outer box takes the scaled size (so the page lays it out at that size), the board inside is
         drawn at its natural size and scaled from its top-left corner */}
     {/* Moved left (desktop): the outer box is `shift` narrower and the board starts `shift` before it, so the page lays
@@ -345,10 +347,10 @@ export default function AddSubBoard({ op, num1, num2, run, onStatus, onDone, ren
         steps window slides open or closed the area's width changes every frame, and the digits must not follow it
         (Julian; see toggleSteps in MathExplorer). With `smoothFit` they glide to their new place instead */}
     <div
-      className={`${natural ? 'mr-auto' : 'mx-auto'} mb-auto shrink-0 ${smoothFit ? 'transition-[margin-left,width] duration-600 ease-[cubic-bezier(0.22,1,0.36,1)]' : ''}`}
-      style={natural ? { ...toRem({ width: natural.w * fit - shift, height: natural.h * fit }), marginLeft: `max(0px, calc((${availableWidth ? `${(availableWidth + 16) / REM_PX}rem` : '100%'} - ${(natural.w * fit) / REM_PX}rem) / 2))` } : undefined}
+      className={`${natural ? 'mr-auto' : 'mx-auto'} mb-auto shrink-0 ${smoothFit ? 'transition-[margin-left,width,height] duration-600 ease-[cubic-bezier(0.22,1,0.36,1)]' : ''}`}
+      style={natural ? { ...toRem({ width: Math.max(0, natural.w * fit - shift), height: natural.h * fit + drop }), marginLeft: `max(0px, calc((${availableWidth ? `${(availableWidth + 16) / REM_PX}rem` : '100%'} - ${(natural.w * fit) / REM_PX}rem) / 2))` } : undefined}
     >
-    <div ref={rootRef} className={`relative w-max flex flex-col gap-4 pb-4 ${smoothFit ? 'transition-[padding,transform,margin-left] duration-600 ease-[cubic-bezier(0.22,1,0.36,1)]' : 'transition-[padding] duration-500'} ${view?.outerMinus ? 'pr-2 pl-[3.625rem] max-sm:pr-8' : 'pl-14'}`} style={{ transform: `scale(${fit})`, transformOrigin: 'top left', ...(shift ? toRem({ marginLeft: -shift }) : {}) }}>
+    <div ref={rootRef} className={`relative w-max flex flex-col gap-4 pb-4 ${smoothFit ? 'transition-[padding,transform,margin-left,margin-top] duration-600 ease-[cubic-bezier(0.22,1,0.36,1)]' : 'transition-[padding] duration-500'} ${view?.outerMinus ? 'pr-2 pl-[3.625rem] max-sm:pr-8' : hasDrums ? 'pl-[8.1875rem]' : 'pl-14'}`} style={{ transform: `scale(${fit})`, transformOrigin: 'top left', ...(shift ? toRem({ marginLeft: -shift }) : {}), ...(drop ? toRem({ marginTop: drop }) : {}) }}>
       {/* −( … ): when the result takes a minus in front, a pink minus and a pair of brackets around both numbers,
           all of it above the dividing line and inside its length */}
       {view?.outerMinus && (() => {
@@ -380,7 +382,7 @@ export default function AddSubBoard({ op, num1, num2, run, onStatus, onDone, ren
         {!view && num1.digits.length > 0 && <div className="absolute z-20 top-1/2 -translate-y-1/2" style={toRem({ left: operandSignLeft })}>{renderSign('n1', num1.sign)}</div>}
         {/* N1 ▶ / N2 ▶: on the left of its sign button, 8px from it (no column on the right any more, so the digits can
             use the whole width); the board keeps room for it on the left (pl-14) */}
-        {!view && num1.digits.length > 0 && <div className="absolute z-20 top-1/2 -translate-y-1/2 -translate-x-full" style={toRem({ left: operandSignLeft - 8 })}><OperandTag label="N1" color="text-cyan-400" /></div>}
+        {!view && num1.digits.length > 0 && <div className="absolute z-20 top-1/2 -translate-y-1/2 -translate-x-full flex items-center gap-[0.9375rem]" data-drumbox style={toRem({ left: operandSignLeft - 8 })}><OperandDrum part="n1" dy={-2} /><OperandTag label="N1" color="text-cyan-400" fixed /></div>}
         {renderNumberRow(view ? view.top : num1, true)}
         {renderZero('top')}
       </div>
@@ -390,21 +392,25 @@ export default function AddSubBoard({ op, num1, num2, run, onStatus, onDone, ren
         {/* The operation sign: left edge aligned with the start of the dividing line,
             raised to halfway between the signs of N1 and N2
             (half the row height + the gap between rows: 16px + 15px) */}
-        <div className="w-10 h-10 md:h-12 shrink-0 self-center relative">
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 text-cyan-500" style={toRem({ marginTop: -(cell + 31) / 2 })}>
+        {/* (Julian) It stays put between the two digit-count drums, just right of them, like × in multiplication: placed
+            from the N1 / N2 tags (so it moves only with them), not from the row's start. Its 40px slot still holds the
+            row's place (no taller than the digits: N2 31px under N1, as in every operation) */}
+        <div className="w-10 shrink-0 self-center" />
+          <div className="absolute z-10 top-1/2 -translate-y-1/2 text-cyan-500" style={toRem({ left: operandSignLeft - 50, marginTop: -(cell + 31) / 2 })}>
             <OpIcon op={view ? view.op : op} />
             <span className="sr-only">{view ? (view.op === 'addition' ? 'Addition' : 'Subtraction') : (op === 'addition' ? 'Addition' : 'Subtraction')}</span>
           </div>
-        </div>
-        {!view && num2.digits.length > 0 && <div className="absolute z-20 top-1/2 -translate-y-1/2 -translate-x-full" style={toRem({ left: operandSignLeft - 8 })}><OperandTag label="N2" color="text-pink-400" /></div>}
+        {!view && num2.digits.length > 0 && <div className="absolute z-20 top-1/2 -translate-y-1/2 -translate-x-full flex items-center gap-[0.9375rem]" data-drumbox style={toRem({ left: operandSignLeft - 8 })}><OperandDrum part="n2" dy={2} /><OperandTag label="N2" color="text-pink-400" fixed /></div>}
         {renderNumberRow(view ? view.bottom : num2, false)}
         {renderZero('bottom')}
         {renderOpMark()}
       </div>
 
       {/* With −( … ) the line runs from the minus (4px in) to the closing bracket, so the whole group sits above it */}
-      <div ref={lineRef} className={`h-1 bg-zinc-700 my-2 rounded-full ${view?.outerMinus ? 'self-start' : ''}`}
-        style={view?.outerMinus ? toRem({ marginLeft: 4 - OUTER_PAD, width: outerRight }) : undefined} />
+      <div ref={lineRef} data-opline className={`h-1 bg-zinc-700 my-2 rounded-full ${view?.outerMinus ? 'self-start' : ''}`}
+        style={view?.outerMinus ? toRem({ marginLeft: 4 - OUTER_PAD, width: outerRight })
+          // (Julian) It reaches left under the digit-count drums too (drawn bigger when the board shrinks: DrumZoom)
+          : hasDrums && !view ? toRem({ marginLeft: Math.min(0, operandSignLeft - DRUM_REACH - DRUM_W * (drumScaleFor(fit) / fit - 1)) }) : undefined} />
 
       <div className="flex items-end gap-1.5 relative">
         <div className="w-10 shrink-0" />
@@ -428,6 +434,6 @@ export default function AddSubBoard({ op, num1, num2, run, onStatus, onDone, ren
     </div>
     </div>
     {typeof document !== 'undefined' && createPortal(overlays, document.body)}
-    </>
+    </DrumZoom.Provider>
   );
 }

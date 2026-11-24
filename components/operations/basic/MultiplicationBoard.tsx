@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactElement } from 'react';
-import { CarryChip, OperandTag, CarryHop, Digit, SumPop, OpIcon, ResultSign, ThousandsComma, commasBefore, pickVariant, toRem, useCellSize, lowerScale, lowerStyle, CARRY_CHIP, type BoardProps } from '../../math/shared';
+import { useContext, useEffect, useRef, useState, type ReactElement } from 'react';
+import { CarryChip, DigitDrums, DRUM_REACH, DRUM_W, DrumZoom, OperandTag, OperandDrum, CarryHop, Digit, SumPop, OpIcon, ResultSign, ThousandsComma, commasBefore, pickVariant, toRem, useCellSize, lowerScale, lowerStyle, CARRY_CHIP, type BoardProps } from '../../math/shared';
 import { COMMA_NUDGE, COMMA_W, type Cell, type Chip, DOT_ROOM, GAP, LEFT, OP_BAR, OP_MARK } from './multiplication/model';
 import { runMultiplication } from './multiplication/script';
 
@@ -24,10 +24,10 @@ export default function MultiplicationBoard({ num1, num2, run, onStatus, onDone,
   // columns stay lined up
   const dotCols = [...new Set([num1.decimalCount, num2.decimalCount, num1.decimalCount + num2.decimalCount])].filter(d => d > 0);
   const x = (col: number): number => LEFT + (C - 1 - col) * P + (grouped ? commasBefore(C - 1 - col, C) * commaGap : 0) + DOT_ROOM * dotCols.filter(b => col < b).length;
-  // N1 3px lower than in the other operations (further from the buttons above) and N1–N2 40% closer than the 31px
-  // there (Julian, multiplication only: it saves room for the rows below)
-  const yN1 = 44 + 3;
-  const yN2 = yN1 + cell + 19;
+  // N1 where it is in the other operations, and N2 31px under it as there (Julian: the same in every operation, so the
+  // drums and the × between them have the same room)
+  const yN1 = 44;
+  const yN2 = yN1 + cell + 31;
   const yLine1 = yN2 + cell + 24;
   // While a partial product row is being written, its carry sits on that row: in the top corner of the
   // digit just written, overlapping it a little, and it slides horizontally along the row from digit to digit.
@@ -95,7 +95,10 @@ export default function MultiplicationBoard({ num1, num2, run, onStatus, onDone,
   // carries data-fit, so FitBoard sizes the board by what is on it, not by the room kept for the rows to come
   const operandLead = Math.max(m, n) - 1;
   const signLeft = x(operandLead) - 45;
+  const hasDrums = !!useContext(DigitDrums);
   const opLeft = signLeft - 50;
+  const drumZoom = useContext(DrumZoom);
+  const line1Left = hasDrums ? Math.min(opLeft, signLeft - DRUM_REACH - DRUM_W * (drumZoom - 1)) : opLeft;
   // The partial products' + and the lines start at the × or, once wider rows are written, before their first digit
   const leftCol = Math.max(operandLead, ...partials.flatMap(r => Object.keys(r).map(Number)), ...Object.keys(sum).map(Number));
   const lineLeft = Math.min(opLeft, x(leftCol) - 95);
@@ -145,7 +148,7 @@ export default function MultiplicationBoard({ num1, num2, run, onStatus, onDone,
         );
       })}
       {m > 0 && <div data-fit className="absolute" style={toRem({ left: signLeft, top: yN1 + (cell - 32) / 2 })}>{renderSign('n1', num1.sign)}</div>}
-      {m > 0 && <div data-fit className="absolute -translate-x-full -translate-y-1/2" style={toRem({ left: signLeft - 8, top: yN1 + cell / 2 })}><OperandTag label="N1" color="text-cyan-400" /></div>}
+      {m > 0 && <div data-fit className="absolute -translate-x-full -translate-y-1/2 flex items-center gap-[0.9375rem]" style={toRem({ left: signLeft - 8, top: yN1 + cell / 2 })}><OperandDrum part="n1" dy={-2} /><OperandTag label="N1" color="text-cyan-400" fixed /></div>}
       {dot(yN1, num1.decimalCount, 'd1')}
       {rowCommas(num1.digits.map((_, idx) => m - 1 - idx), yN1, 'k1-', num1.decimalCount)}
 
@@ -167,13 +170,14 @@ export default function MultiplicationBoard({ num1, num2, run, onStatus, onDone,
         );
       })}
       {n > 0 && <div data-fit className="absolute" style={toRem({ left: signLeft, top: yN2 + (cell - 32) / 2 })}>{renderSign('n2', num2.sign)}</div>}
-      {n > 0 && <div data-fit className="absolute -translate-x-full -translate-y-1/2" style={toRem({ left: signLeft - 8, top: yN2 + cell / 2 })}><OperandTag label="N2" color="text-pink-400" /></div>}
+      {n > 0 && <div data-fit className="absolute -translate-x-full -translate-y-1/2 flex items-center gap-[0.9375rem]" style={toRem({ left: signLeft - 8, top: yN2 + cell / 2 })}><OperandDrum part="n2" dy={2} /><OperandTag label="N2" color="text-pink-400" fixed /></div>}
       {dot(yN2, num2.decimalCount, 'd2')}
       {rowCommas(num2.digits.map((_, idx) => n - 1 - idx), yN2, 'k2-', num2.decimalCount)}
 
       {/* The line under the operands keeps the operands' length (Julian): wider partial rows don't stretch it while the
           explanation runs (only the + of the partial products and the second line follow them) */}
-      <div className="absolute h-1 bg-zinc-700 rounded-full transition-[left,width] duration-500" style={toRem({ left: opLeft, top: yLine1, width: width - opLeft })} />
+      {/* (Julian) It reaches left under the digit-count drums too (drawn bigger when the board shrinks: DrumZoom) */}
+      <div data-opline className="absolute h-1 bg-zinc-700 rounded-full transition-[left,width] duration-500" style={toRem({ left: line1Left, top: yLine1, width: width - line1Left })} />
 
       {/* Under the first line: drawn smaller towards the units column when needed (ls, see above) */}
       <div className="absolute inset-0 pointer-events-none" style={lowerStyle(ls, width, lowTop)}>

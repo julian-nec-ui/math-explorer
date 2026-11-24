@@ -8,8 +8,9 @@ import { toRem } from './layout';
 
 // "N1 ▶" / "N2 ▶" on the left of a number's sign button: the label, 8px of room, and an arrow pointing at the number
 // (the same triangle as the arrows in the steps window), both in the number's colour; 8px from the button
-export const OperandTag = ({ label, color }: { label: string; color: string }): ReactElement => (
-  <span className={`flex items-center gap-2 font-bold uppercase whitespace-nowrap text-[9px] tracking-[1.5px] ${color}`}>
+// `fixed`: always as wide as the widest of N1 / N2 (right-aligned), so the drums left of them line up (Julian)
+export const OperandTag = ({ label, color, fixed = false }: { label: string; color: string; fixed?: boolean }): ReactElement => (
+  <span data-tag={fixed ? '' : undefined} className={`flex items-center gap-2 font-bold uppercase whitespace-nowrap text-[9px] tracking-[1.5px] ${fixed ? 'w-8 justify-end' : ''} ${color}`}>
     {label}
     <svg viewBox="0 0 10 12" aria-hidden="true" className="h-2.5 w-auto shrink-0"><path d="M0 0 10 6 0 12z" fill="currentColor" /></svg>
   </span>

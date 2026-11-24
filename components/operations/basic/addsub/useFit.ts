@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { REM_PX, useCellSize, type NumberData } from '../../../math/shared';
+import { REM_PX, solveFit, useCellSize, type NumberData } from '../../../math/shared';
 import { ADD_MIN_FIT_DESK, ADD_SHIFT_MAX, ADD_EDGE_GAP, ADD_GROW_LEFT_FROM, ADD_MIN_FIT_SMALL, WIDE_QUERY, subscribeWide, G, COMMA_SLOT } from './model';
 
 // Addition / subtraction's size and place on the board area (Julian's rules): the board's natural size, measured; how
@@ -10,7 +10,7 @@ export function useAddSubFit({ num1, num2, availableWidth, leftRoom, stepsClosed
   // box around it can take the scaled size, and the scale (see ADD_MIN_FIT_DESK)
   const rootRef = useRef<HTMLDivElement>(null);
   // dl / dr: where the digits start and end inside it (the leftmost and rightmost digit cells), unscaled
-  const [natural, setNatural] = useState<{ w: number; h: number; dl: number; dr: number } | null>(null);
+  const [natural, setNatural] = useState<{ w: number; h: number; dl: number; dr: number; yc: number; dw: number; tl: number | null } | null>(null);
   useLayoutEffect(() => {
     const el = rootRef.current;
     if (!el) return;
@@ -21,11 +21,23 @@ export function useAddSubFit({ num1, num2, availableWidth, leftRoom, stepsClosed
       const w = el.offsetWidth * k, h = el.offsetHeight * k;
       const r = el.getBoundingClientRect();
       const scale = el.offsetWidth ? r.width / el.offsetWidth : 1;
-      const cells = [...el.querySelectorAll('.rounded-md.border-2')].map(c => c.getBoundingClientRect());
-      const dl = cells.length ? ((Math.min(...cells.map(c => c.left)) - r.left) / scale) * k : 0;
+      // The digit-count drums count by their place in the layout (their tags' box, `data-drumbox`): drawn bigger when the
+      // board shrinks (see DrumZoom), they are allowed for below (dw: their width)
+      const notDrum = (c: Element) => !c.closest('[data-drum]');
+      const cells = [...el.querySelectorAll('.rounded-md.border-2')].filter(notDrum).map(c => c.getBoundingClientRect());
+      const boxes = [...el.querySelectorAll('[data-drumbox]')].map(c => c.getBoundingClientRect());
+      const dl = cells.length || boxes.length ? ((Math.min(...cells.map(c => c.left), ...boxes.map(c => c.left)) - r.left) / scale) * k : 0;
+      const drum = el.querySelector<HTMLElement>('[data-drum]');
+      const dw = drum ? drum.offsetWidth * k : 0;
+      // tl: where the N1 / N2 tags start (the board is held by them, see `anchored`)
+      const tags = [...el.querySelectorAll('[data-tag]')].map(c => c.getBoundingClientRect().left);
+      const tl = tags.length ? ((Math.min(...tags) - r.left) / scale) * k : null;
+      // yc: the middle of the first operand's row (the topmost cells), from the board's top, unscaled
+      const top = cells.length ? cells.reduce((a, c) => (c.top < a.top ? c : a)) : null;
+      const yc = top ? ((top.top + top.height / 2 - r.top) / scale) * k : 0;
       const dr = cells.length ? ((Math.max(...cells.map(c => c.right)) - r.left) / scale) * k : w;
       const same = (a: number, b: number) => Math.abs(a - b) < 0.05;
-      setNatural(prev => (prev && same(prev.w, w) && same(prev.h, h) && same(prev.dl, dl) && same(prev.dr, dr) ? prev : { w, h, dl, dr }));
+      setNatural(prev => (prev && same(prev.w, w) && same(prev.h, h) && same(prev.dl, dl) && same(prev.dr, dr) && same(prev.yc, yc) && same(prev.dw, dw) && prev.tl === tl ? prev : { w, h, dl, dr, yc, dw, tl }));
     };
     measure();
     measureRef.current = measure;
@@ -38,14 +50,11 @@ export function useAddSubFit({ num1, num2, availableWidth, leftRoom, stepsClosed
   const measureRef = useRef<() => void>(() => {});
   useLayoutEffect(() => { measureRef.current(); });
   const wide = useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE_QUERY).matches, () => true);
-  // How much of the board fits in a width (1 = all of it). availableWidth keeps 16px; 8px of them may be used
-  // (tablet / phone)
-  const fitIn = (w: number) => (natural ? Math.min(1, (w + 8) / natural.w) : 1);
   // Desktop: the board area's width, plus the room on its left the board may move into
   // (minus ADD_EDGE_GAP: the last digit stops that far from the board area's edge, which is 2px from the steps window,
   // so 3px from the window in all, Julian)
   const viewW = (availableWidth ?? 0) + 16 - ADD_EDGE_GAP;
-  const room = wide ? leftRoom : 0;
+  const room = leftRoom;
   // Desktop: always a little left of the centre, more the longer the numbers (0px with 1 digit … 20px with 11,
   // Julian); too long for the area: moved left at least enough to end inside it; never further left than `room`
   const longest = Math.max(num1.digits.length, num2.digits.length);
@@ -67,10 +76,19 @@ export function useAddSubFit({ num1, num2, availableWidth, leftRoom, stepsClosed
   })();
   // Normal size unless the board can't fit even moved left as far as `room` allows (and, past 11 digits, ending where
   // it ended with 11): then smaller, smoothly, down to 50%
+  // Desktop with the steps window open (Julian): the board is held by its left end, the digit-count drums, at the far
+  // left (15px from the controls column, where they are at full size), so they stay put while digits are added or
+  // taken away: the numbers grow and shrink on their right. Only when they no longer fit up to the steps window does
+  // the board shrink (from that same left end)
+  // (whenever the controls column stands beside the board, md up, steps window open or not: Julian)
+  // (held by the N1 / N2 tags: the drums hang to their left, and moving them moves nothing else)
+  const anchored = !!natural && leftRoom > 0 && natural.tl != null;
+  // (the drums need `extra` more px on the left when the board shrinks: see DrumZoom)
   const fit = !natural || !availableWidth ? 1
+    : anchored ? Math.max(wide ? ADD_MIN_FIT_DESK : ADD_MIN_FIT_SMALL, Math.min(1, (viewW + room) / Math.max(1, natural.w - (natural.tl ?? 0))))
     : wide ? Math.max(ADD_MIN_FIT_DESK, Math.min(1, (viewW + room) / natural.w, right11 === null ? 1 : (right11 + room) / natural.w))
     // tablet / phone: fit the screen
-    : Math.max(ADD_MIN_FIT_SMALL, fitIn(availableWidth));
+    : solveFit(natural.dw, extra => Math.max(ADD_MIN_FIT_SMALL, Math.min(1, ((availableWidth ?? 0) + 8) / (natural.w + extra))));
   const W = natural ? natural.w * fit : 0;
   // Steps window collapsed (Julian; desktop, tablet and phone): the numbers (from the first digit to the last) centred
   // on the middle of the page, as far as the room allows (not past 15px after the controls column — on a phone, not
@@ -79,6 +97,8 @@ export function useAddSubFit({ num1, num2, availableWidth, leftRoom, stepsClosed
     ? Math.min(viewW - W, Math.max(-leftRoom, pageMidX - (fit * (natural.dl + natural.dr)) / 2))
     : 0;
   const shift = !natural ? 0
+    // (the outer box is centred in availableWidth + 16; the drawn part starts dl in)
+    : anchored ? Math.max(0, ((availableWidth ?? 0) + 16 - W) / 2) + (natural.tl ?? 0) * fit + room
     : stepsClosed && pageMidX !== undefined ? Math.max(0, (viewW - W) / 2) - closedLeft
     : !wide ? 0
     : right11 === null ? shiftFor(W, (ADD_SHIFT_MAX * Math.max(0, longest - 1)) / 11)
@@ -86,5 +106,8 @@ export function useAddSubFit({ num1, num2, availableWidth, leftRoom, stepsClosed
   useEffect(() => { if (natural) onNaturalWidth?.(natural.w); }, [natural, onNaturalWidth]);
   const fitRef = useRef(1);
   useEffect(() => { fitRef.current = fit; }, [fit]);
-  return { rootRef, natural, fit, shift, fitRef };
+  // Shrunk on a desktop (Julian): the board comes down as it shrinks, so the first operand's row stays where it is at
+  // full size, level with INTEGER / FLOAT, instead of rising with the scaling (made from the top-left corner)
+  const drop = natural && wide ? (1 - fit) * natural.yc : 0;
+  return { rootRef, natural, fit, shift, fitRef, drop };
 }

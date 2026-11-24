@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactElement } from 'react';
-import { CarryChip, CarryHop, OperandTag, Digit, SumPop, ResultSign, ThousandsComma, commaAfter, pickVariant, toRem, useCellSize, lowerScale, lowerStyle } from '../../math/shared';
-import { COMMA_NUDGE, COMMA_W, type Cell, type Chip, DOT_ROOM, type DivisionBoardProps, GAP, type Line, type Mover, type WorkRow, planDivision } from './division/model';
+import { CARRY_CHIP, CarryChip, CarryHop, OperandTag, OperandDrum, Digit, SumPop, ResultSign, ThousandsComma, commaAfter, pickVariant, toRem, useCellSize, lowerScale, lowerStyle } from '../../math/shared';
+import { COMMA_NUDGE, COMMA_W, type Cell, type Chip, DOT_ROOM, type DivisionBoardProps, GAP, type Line, type Mover, type SideMul, type WorkRow, planDivision } from './division/model';
 import { runDivision } from './division/script';
 export type { DivisionResult, DivisionMethod } from './division/model';
 
@@ -59,11 +59,14 @@ export default function DivisionBoard({ num1, num2, run, onStatus, onDone, rende
   // A borrow: the ten jumps from the digit on the left onto the digit that needs it (`hop`), which then shows for a
   // moment with the ten added, e.g. 13 (`pop`). Board px
   const [pop, setPop] = useState<{ x: number; y: number; text: string; lead: number; splitting: boolean } | null>(null);
-  const [hop, setHop] = useState<{ x0: number; y0: number; x1: number; y1: number; key: string } | null>(null);
+  const [hop, setHop] = useState<{ x0: number; y0: number; x1: number; y1: number; key: string; value?: number | string } | null>(null);
   const [mover, setMover] = useState<Mover | null>(null);
   const [fadingCells, setFadingCells] = useState<Set<string>>(new Set());
   const [qSign, setQSign] = useState<1 | -1 | null>(null);
   const [finalRow, setFinalRow] = useState<string | null>(null);
+  const [side, setSide] = useState<SideMul | null>(null);
+  // the two numbers of the subtraction being done, each framed in red: its row's top (board px) and its columns
+  const [frames, setFrames] = useState<Array<{ y: number; from: number; to: number }>>([]);
 
   // The animation reads the latest cell size through this ref; it is updated after every render
   const layout = useRef({ cell, yD, yWork, x });
@@ -71,14 +74,15 @@ export default function DivisionBoard({ num1, num2, run, onStatus, onDone, rende
     layout.current = { cell, yD, yWork, x };
   });
 
-  useEffect(() => runDivision({ run, setChips, num1, num2, method, result, layout, setRows, onStatus, setShifted, setHl, setQuot, setLines, setHop, setPop, setFadingCells, setUsedD, setMover, setFinalRow, setQSign, onDone }), []);
+  useEffect(() => runDivision({ run, setChips, num1, num2, method, result, layout, setRows, onStatus, setShifted, setHl, setQuot, setLines, setHop, setPop, setFadingCells, setUsedD, setMover, setFinalRow, setQSign, setSide, setFrames, onDone }), []);
 
-  const bottom = Math.max(yWork, ...rows.map(r => r.y + cell), ...lines.map(l => l.y + 3));
+  const bottom = Math.max(yWork, ...rows.map(r => r.y + cell), ...lines.map(l => l.y + 3), side ? side.y + 3 * cell + 40 : 0);
   const width = boardWidth;
   // The subtractions shrink when the finished board would not fit the area's height (see lowerScale). Known in advance:
   // every quotient digit other than 0 writes a product, a line and a difference (16 + cell + 11 + 8 + cell px)
   const steps = planDivision(num1, num2, method, result).qcols.filter(q => q > 0).length;
-  const finalBottom = yWork + steps * (2 * cell + 35);
+  // (and, under the last one, the room for the multiplication worked out on the side: three rows and a line)
+  const finalBottom = yWork + steps * (2 * cell + 35) + (steps ? 3 * cell + 75 : 0);
   const ls = lowerScale(availableHeight, yWork, finalBottom + 16);
   // The box keeps the room for the rows still to come (like multiplication), so its height is the final one from the
   // start: the rows can't push it taller during the explanation, and FitBoard can fit the height in advance
@@ -91,7 +95,15 @@ export default function DivisionBoard({ num1, num2, run, onStatus, onDone, rende
   const decimalPoint = (left: number, y: number, key: string) => (
     <div key={key} className="absolute z-20 w-1.5 h-1.5 rounded-full bg-cyan-300 shadow-[0_0_4px_rgba(103,232,249,0.9)]" style={toRem({ left: left + cell + (GAP + DOT_ROOM) / 2 - 3, top: y + cell - 9 })} />
   );
-  const chipLeft = (c: Chip) => (c.side === 'left' ? x(c.col) - 4 : x(c.col) + cell - 16);
+  // A red frame round a number being subtracted (#ff005c, 5px, as the column being added in multiplication)
+  const renderFrames = (low: boolean) => frames.filter(f => (f.y >= yWork) === low).map(f => (
+    <div
+      key={`fr${f.y}-${f.from}`}
+      className="absolute z-30 rounded-xl border-[5px] border-[#ff005c] animate-pop-in pointer-events-none"
+      style={toRem({ left: x(f.from) - 7, top: f.y - 6, width: x(f.to) + cell - x(f.from) + 14, height: cell + 12 })}
+    />
+  ));
+  const chipLeft = (c: Chip) => (c.side === 'left' ? x(c.col) - 4 : x(c.col) + cell - 16) + (c.dx ?? 0);
   // Borrows (in the corners of the top digits), the ten that jumps and the number it makes: in the work area (`low`,
   // drawn inside the shrinking layer) or on N1 itself, when the first subtraction is done right under the dividend
   const renderBorrows = (low: boolean) => (
@@ -106,7 +118,7 @@ export default function DivisionBoard({ num1, num2, run, onStatus, onDone, rende
         </div>
       ))}
       {pop && (pop.y >= yWork) === low && <SumPop x={pop.x} y={pop.y} text={pop.text} lead={pop.lead} kind="borrow" splitting={pop.splitting} />}
-      {hop && (hop.y0 >= yWork) === low && <CarryHop key={hop.key} x0={hop.x0} y0={hop.y0} x1={hop.x1} y1={hop.y1} value={10} kind="borrow" />}
+      {hop && (hop.y0 >= yWork) === low && <CarryHop key={hop.key} x0={hop.x0} y0={hop.y0} x1={hop.x1} y1={hop.y1} value={hop.value ?? 10} kind="borrow" />}
     </>
   );
 
@@ -134,7 +146,7 @@ export default function DivisionBoard({ num1, num2, run, onStatus, onDone, rende
         );
       })}
       {cols > 0 && <div data-fit className="absolute" style={toRem(signPos(yD))}>{renderSign('n1', num1.sign)}</div>}
-      {cols > 0 && <div data-fit className="absolute -translate-x-full -translate-y-1/2" style={toRem({ left: S0 - 53, top: yD + cell / 2 })}><OperandTag label="N1" color="text-cyan-400" /></div>}
+      {cols > 0 && <div data-fit className="absolute -translate-x-full -translate-y-1/2 flex items-center gap-[0.9375rem]" style={toRem({ left: S0 - 53, top: yD + cell / 2 })}><OperandDrum part="n1" dy={-2} /><OperandTag label="N1" color="text-cyan-400" fixed /></div>}
       {Array.from({ length: plan.intLen }, (_, k) => commaAfter(k, plan.intLen) && <ThousandsComma key={`kd${k}`} left={x(k) + cell + GAP - COMMA_NUDGE} top={yD + cell - 28} />)}
       {cols > plan.intLen && !wholeInputs && decimalPoint(x(plan.intLen - 1), yD, 'pd')}
       {V.map((_, t) => t < vInt && commaAfter(t, vInt) && <ThousandsComma key={`kv${t}`} left={xDiv(t) + cell + GAP - COMMA_NUDGE} top={yV + cell - 28} />)}
@@ -150,7 +162,7 @@ export default function DivisionBoard({ num1, num2, run, onStatus, onDone, rende
 
       {/* N2 (the divisor) */}
       {n > 0 && <div data-fit className="absolute" style={toRem(signPos(yV))}>{renderSign('n2', num2.sign)}</div>}
-      {n > 0 && <div data-fit className="absolute -translate-x-full -translate-y-1/2" style={toRem({ left: S0 - 53, top: yV + cell / 2 })}><OperandTag label="N2" color="text-pink-400" /></div>}
+      {n > 0 && <div data-fit className="absolute -translate-x-full -translate-y-1/2 flex items-center gap-[0.9375rem]" style={toRem({ left: S0 - 53, top: yV + cell / 2 })}><OperandDrum part="n2" dy={2} /><OperandTag label="N2" color="text-pink-400" fixed /></div>}
       {V.map((v: number, t: number) => {
         // Zeros added when the decimal points move (equalize) are ghost cells; only N2's own digits can be turned
         const own = t + plan.vOffset < num2.digits.length;
@@ -169,7 +181,7 @@ export default function DivisionBoard({ num1, num2, run, onStatus, onDone, rende
         );
       })}
 
-      <div data-fit className={glyph} style={toRem({ ...eqPos, width: 20, height: cell })}>=</div>
+      <div data-fit data-opline="center" className={glyph} style={toRem({ ...eqPos, width: 20, height: cell })}>=</div>
 
       {/* The quotient */}
       {qSign !== null && (
@@ -186,25 +198,38 @@ export default function DivisionBoard({ num1, num2, run, onStatus, onDone, rende
       {/* The work area under the quotient: drawn smaller towards the right when needed (ls, see above) */}
       <div className="absolute inset-0 pointer-events-none" style={lowerStyle(ls, width, yWork)}>
       {/* The subtractions */}
-      {rows.map(r => (
-        <div key={r.id}>
+      {rows.map(r => {
+        const dx = r.dx ?? 0;
+        const glide = r.move ? 'transition-[left,top,opacity] duration-800 ease-in-out' : 'transition-opacity duration-700';
+        return (
+        <div key={r.id} className={`transition-opacity duration-700 ${r.fading ? 'opacity-0' : 'opacity-100'}`}>
           {r.kind === 'product' && r.minusAt !== undefined && (
-            <div className="absolute flex items-center justify-center text-2xl font-light text-zinc-400" style={toRem({ left: x(r.minusAt) - 30, top: r.y, width: 20, height: cell })}>−</div>
+            <div className={`absolute flex items-center justify-center text-2xl font-light text-zinc-400 ${glide}`} style={toRem({ left: x(r.minusAt) - 30 + dx, top: r.y, width: 20, height: cell })}>−</div>
           )}
           {Object.entries(r.cells).map(([key, c]) => {
             const col = Number(key);
             const isFinal = finalRow === r.id;
             const variant = hl.has(`${r.id}:${col}`) ? 'highlight' : isFinal ? 'result' : r.kind === 'product' ? 'computed' : 'idle';
             return (
-              <div key={c.id} className="absolute" style={toRem({ left: x(col), top: r.y })}>
+              <div key={c.id} className={`absolute ${glide}`} style={toRem({ left: x(col) + dx, top: r.y })}>
                 <div className={fadingCells.has(`${r.id}:${col}`) ? 'animate-fade-out' : 'animate-pop-in'}>
                   <Digit digit={c.value} variant={variant} />
                 </div>
+                {/* Crossed out in red, the new value written small above it (as in subtraction) */}
+                {r.crossed?.[col] !== undefined && (
+                  <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-30">
+                    <svg className="absolute inset-0 w-full h-full animate-pop-in" viewBox="0 0 100 100" preserveAspectRatio="none">
+                      <line x1="22" y1="80" x2="78" y2="20" stroke="#f87171" strokeWidth="3" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                    </svg>
+                    <span className="absolute left-1/2 -translate-x-1/2 -top-5 text-[15px] font-black leading-none text-red-400 drop-shadow-[0_0_6px_rgba(248,113,113,0.6)] animate-pop-in">{r.crossed[col]}</span>
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
-      ))}
+        );
+      })}
       {/* "Remainder ▶" on the left of what is left at the end, centred on its row (Julian); whole-number divisions only
           (with decimals the division goes on after the point instead) */}
       {(() => {
@@ -217,8 +242,73 @@ export default function DivisionBoard({ num1, num2, run, onStatus, onDone, rende
         );
       })()}
       {lines.map(l => (
-        <div key={l.id} className="absolute h-0.75 bg-zinc-600 rounded-full" style={toRem({ left: x(l.from) - 4, top: l.y, width: x(l.to) + cell - x(l.from) + 8 })} />
+        <div key={l.id} className="absolute h-0.75 bg-zinc-600 rounded-full animate-pop-in" style={toRem({ left: x(l.from) - 4 + (l.dx ?? 0), top: l.y, width: x(l.to) + cell - x(l.from) + 8 })} />
       ))}
+      {/* The multiplication on the side (Julian): divisor, × quotient digit, a line, the product written from the right;
+          then the product rises into its place under the current number */}
+      {side && (() => {
+        const colOf = (len: number, j: number) => side.k - (len - 1 - j);
+        const yMul = side.y + cell + 8;
+        const yLine = yMul + cell + 8;
+        const yProd = yLine + 11;
+        const left = x(colOf(Math.max(side.divisor.length, side.prod.length), 0));
+        return (
+          <div key={side.id} className={side.fly ? '' : 'animate-pop-in'}>
+            <div className={`transition-opacity duration-500 ${side.fly ? 'opacity-0' : 'opacity-100'}`}>
+              {side.divisor.map((v, j) => (
+                <div key={`sd${j}`} className="absolute" style={toRem({ left: x(colOf(side.divisor.length, j)), top: side.y })}>
+                  <Digit digit={v} variant={side.active === j ? 'highlight' : 'computed'} />
+                </div>
+              ))}
+              <div className="absolute flex items-center justify-center text-2xl font-light text-zinc-400" style={toRem({ left: Math.min(left, x(side.k)) - 30, top: yMul, width: 20, height: cell })}>×</div>
+              <div className="absolute" style={toRem({ left: x(side.k), top: yMul })}>
+                <Digit digit={side.q} variant={side.active !== null ? 'highlight' : 'result'} />
+              </div>
+              {/* The carry: in the top corner of the next digit to the left (in front of the divisor for the last one),
+                  until it hops into the next sum */}
+              {side.carry > 0 && side.carryAt !== undefined && (
+                <div key={`sc${side.carryAt}`} className="absolute z-40" style={toRem({ left: x(colOf(side.divisor.length, side.carryAt)) + cell - 16, top: side.y - 12 })}>
+                  <CarryChip value={side.carry} kind="carry" />
+                </div>
+              )}
+              <div className="absolute h-0.75 bg-zinc-600 rounded-full" style={toRem({ left: left - 4, top: yLine, width: x(side.k) + cell - left + 8 })} />
+            </div>
+            {side.expr && (
+              <>
+                <div key={`${side.expr.key}l`} className="absolute z-50 pointer-events-none" style={{ ...toRem({ left: side.expr.right, top: side.expr.y }), transform: 'translate(-100%, -50%)' }}>
+                <div className="whitespace-nowrap leading-none font-black text-[#58c7fe] flex items-center animate-pop-in origin-right" style={{ fontSize: '1.375rem' }}>
+                  {side.expr.parts.map((p, i) => <span key={i} style={i === 1 ? { margin: '0 0.3em' } : undefined}>{p}</span>)}
+                  {side.expr.slot && <span className="inline-block" style={toRem({ width: CARRY_CHIP, height: CARRY_CHIP, marginLeft: 6, marginRight: 6 })} />}
+                  <span className={`inline-block text-center ${side.expr.eq ? 'opacity-100' : 'opacity-0'}`} style={toRem({ width: 20, marginLeft: 6 })}>=</span>
+                </div>
+                </div>
+                {side.expr.result !== null && (
+                  <div key={`${side.expr.key}r${side.expr.result}`} className="absolute z-50 pointer-events-none" style={{ ...toRem({ left: side.expr.cx, top: side.expr.y }), transform: 'translate(-50%, -50%)' }}>
+                    <div className="whitespace-nowrap leading-none font-black text-[#58c7fe] animate-pop-in" style={{ fontSize: '1.375rem' }}>{side.expr.result}</div>
+                  </div>
+                )}
+              </>
+            )}
+            {side.chip && (
+              <div className="absolute z-60 pointer-events-none transition-[left,top] duration-800 ease-in-out" style={{ ...toRem({ left: side.chip.x, top: side.chip.y }), transform: 'translate(-50%, -50%)' }}>
+                <CarryChip value={side.chip.value} kind="carry" />
+              </div>
+            )}
+            {side.pop && <SumPop x={side.pop.x} y={side.pop.y} text={side.pop.text} lead={side.pop.lead} kind="carry" splitting={side.pop.splitting} extra={side.pop.extra} />}
+            {side.hop && <CarryHop key={side.hop.key} x0={side.hop.x0} y0={side.hop.y0} x1={side.hop.x1} y1={side.hop.y1} value={side.hop.value} kind="carry" />}
+            {side.prod.map((v, j) => j >= side.prod.length - side.shown && (
+              <div
+                key={`sp${j}`}
+                className="absolute z-30 transition-[top] duration-700 ease-in-out"
+                style={toRem({ left: x(colOf(side.prod.length, j)), top: side.fly ? side.prodY : yProd })}
+              >
+                <div className="animate-pop-in"><Digit digit={v} variant="computed" /></div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+      {renderFrames(true)}
       {renderBorrows(true)}
       </div>
 
@@ -235,6 +325,7 @@ export default function DivisionBoard({ num1, num2, run, onStatus, onDone, rende
         );
       })()}
 
+      {renderFrames(false)}
       {renderBorrows(false)}
     </div>
   );

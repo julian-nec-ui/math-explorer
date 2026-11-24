@@ -1,6 +1,6 @@
 import type { Dispatch, RefObject, SetStateAction } from 'react';
-import { paced, pausableTimeout, HOP_MS, type NumberData, doneMessage, formatNumber } from '../../../math/shared';
-import { type Cell, type Chip, type DivisionMethod, type DivisionResult, type Line, type Mover, TEN, type WorkRow, ZERO, planDivision, quotientUpTo } from './model';
+import { paced, pausableTimeout, HOP_MS, CARRY_CHIP, type NumberData, doneMessage, formatNumber } from '../../../math/shared';
+import { type Cell, type Chip, type DivisionMethod, type DivisionResult, type Line, type Mover, type SideMul, TEN, type WorkRow, ZERO, planDivision, quotientUpTo } from './model';
 
 // What the explanation works with: the board's props, state setters, refs and measurements
 export interface DivisionScript {
@@ -17,18 +17,20 @@ export interface DivisionScript {
   setHl: Dispatch<SetStateAction<Set<string>>>;
   setQuot: Dispatch<SetStateAction<Cell[]>>;
   setLines: Dispatch<SetStateAction<Line[]>>;
-  setHop: Dispatch<SetStateAction<{ x0: number; y0: number; x1: number; y1: number; key: string; } | null>>;
+  setHop: Dispatch<SetStateAction<{ x0: number; y0: number; x1: number; y1: number; key: string; value?: number | string; } | null>>;
   setPop: Dispatch<SetStateAction<{ x: number; y: number; text: string; lead: number; splitting: boolean; } | null>>;
   setFadingCells: Dispatch<SetStateAction<Set<string>>>;
   setUsedD: Dispatch<SetStateAction<Set<number>>>;
   setMover: Dispatch<SetStateAction<Mover | null>>;
   setFinalRow: Dispatch<SetStateAction<string | null>>;
   setQSign: Dispatch<SetStateAction<1 | -1 | null>>;
+  setSide: Dispatch<SetStateAction<SideMul | null>>;
+  setFrames: Dispatch<SetStateAction<Array<{ y: number; from: number; to: number }>>>;
   onDone: () => void;
 }
 
 // The explanation, started when `run` turns true
-export function runDivision({ run, setChips, num1, num2, method, result, layout, setRows, onStatus, setShifted, setHl, setQuot, setLines, setHop, setPop, setFadingCells, setUsedD, setMover, setFinalRow, setQSign, onDone }: DivisionScript) {
+export function runDivision({ run, setChips, num1, num2, method, result, layout, setRows, onStatus, setShifted, setHl, setQuot, setLines, setHop, setPop, setFadingCells, setUsedD, setMover, setFinalRow, setQSign, setSide, setFrames, onDone }: DivisionScript) {
   if (!run) return;
   let alive = true;
   const wait = (ms: number) => new Promise<boolean>(resolve => pausableTimeout(() => resolve(alive), paced(ms)));
@@ -36,8 +38,8 @@ export function runDivision({ run, setChips, num1, num2, method, result, layout,
   const id = (p: string) => `${p}${seq++}`;
 
   const dropFaded = () => window.setTimeout(() => { if (alive) setChips(prev => prev.filter(c => !c.fading)); }, 900);
-  const addChip = (col: number, rowY: number) => {
-    setChips(prev => [...prev.map(c => (c.side === 'right' ? { ...c, fading: true } : c)), { id: id('c'), col, side: 'left', rowY, value: 1, fading: false }]);
+  const addChip = (col: number, rowY: number, dx = 0) => {
+    setChips(prev => [...prev.map(c => (c.side === 'right' ? { ...c, fading: true } : c)), { id: id('c'), col, side: 'left', rowY, value: 1, fading: false, dx }]);
     dropFaded();
   };
   // The borrow taken from the digit on the left slides into that digit's top-right corner
@@ -128,27 +130,159 @@ export function runDivision({ run, setChips, num1, num2, method, result, layout,
         // The product, written under the current number
         const pd = digitsOf(prod);
         const pStart = k - pd.length + 1;
-        const product: WorkRow = { id: id('r'), kind: 'product', y: yCursor + 16, cells: {}, minusAt: pStart };
+        const prodY = yCursor + 16;
+
+        // First, on the side under the work: where the product comes from, q × divisor, worked out digit by digit
+        const dv = digitsOf(divisor);
+        const side: SideMul = { id: id('s'), k, y: prodY + cellPx() + 28, prodY, divisor: dv, q, prod: pd, shown: 0, active: null, carry: 0, fly: false };
+        setSide({ ...side });
+        onStatus(`Where does ${prod} come from? We multiply ${divisor} × ${q} on the side.`);
+        if (!(await wait(1400))) return;
+        // As in addition (Julian): each column's sum pops up where its digit goes; a carry waiting in the column's corner
+        // hops into it first ("+ 1"); a sum of 10 or more splits: the units stay as the digit, the tens hop to the next
+        // column's corner
+        const L = layout.current;
+        const cellNow = cellPx();
+        const yProd = side.y + 2 * cellNow + 27;
+        const colOf = (len: number, j: number) => k - (len - 1 - j);
+        // the centre of the carry corner over divisor digit j (j = -1: in front of the divisor)
+        const corner = (j: number) => ({ x: L.x(colOf(dv.length, j)) + cellNow - 16 + CARRY_CHIP / 2, y: side.y - 12 + CARRY_CHIP / 2 });
+        // (the gap for the carry in "m + [ ] =": its centre this far left of the expression's right end: "=" 20px wide
+        // with 6px before it, the gap 30px wide with 6px each side)
+        const SLOT_FROM_RIGHT = 20 + 6 + 6 + CARRY_CHIP / 2;
+        let carry = 0;
+        for (let t = dv.length - 1; t >= 0; t--) {
+          const m = dv[t] * q;
+          const p = m + carry;
+          const digit = p % 10;
+          const next = Math.floor(p / 10);
+          const j = pd.length - 1 - (dv.length - 1 - t); // the product digit this column writes
+          const at2 = { x: L.x(colOf(pd.length, j)) + cellNow / 2, y: yProd + cellNow / 2 };
+          side.active = t;
+          // the calculation on the product row, as in addition: "q × d =", the result in the digit's cell
+          const exprAt = { right: L.x(colOf(pd.length, j)) - 6, y: at2.y, cx: at2.x };
+          side.expr = { key: id('e'), ...exprAt, parts: [String(q), '×', String(dv[t])], slot: false, eq: true, result: String(m) };
+          setSide({ ...side });
+          onStatus(`${q} × ${dv[t]} = ${m}` + (carry ? `, plus the carry ${carry}` : ''));
+          if (!(await wait(1300))) return;
+          if (carry) {
+            // "m + [ ] =": the carry chip flies from its corner into the gap, then "= p"
+            const key = id('e');
+            side.expr = { key, ...exprAt, parts: [String(m), '+'], slot: true, eq: false, result: null };
+            const from = corner(t);
+            side.carry = 0;
+            side.chip = { ...from, value: carry };
+            setSide({ ...side });
+            if (!(await wait(60))) return;
+            side.chip = { x: exprAt.right - SLOT_FROM_RIGHT, y: exprAt.y, value: carry };
+            setSide({ ...side });
+            if (!(await wait(900))) return;
+            side.expr = { key, ...exprAt, parts: [String(m), '+'], slot: true, eq: true, result: String(p) };
+            setSide({ ...side });
+            onStatus(`${m} + ${carry} = ${p}`);
+            if (!(await wait(1300))) return;
+            side.chip = null;
+          }
+          side.expr = null;
+          if (next) side.pop = { ...at2, text: String(p), lead: String(next).length, splitting: false };
+          setSide({ ...side });
+          if (next && !(await wait(900))) return;
+          if (next) {
+            // it splits: the units become the digit, the tens hop to the next column's corner
+            onStatus(`${p}: write ${digit}, carry ${next}.`);
+            side.pop = { ...side.pop!, splitting: true };
+            side.shown += 1;
+            const to = corner(t - 1);
+            side.hop = { x0: at2.x - 0.3 * cellNow, y0: at2.y, x1: to.x, y1: to.y, value: next, key: id('sh') };
+            setSide({ ...side });
+            if (!(await wait(HOP_MS))) return;
+            side.hop = null;
+            side.pop = null;
+            side.carry = next;
+            side.carryAt = t - 1; // (over the next digit to the left; -1: in front of the divisor)
+            setSide({ ...side });
+            if (!(await wait(700))) return;
+          } else {
+            onStatus(`Write ${digit}.`);
+            side.pop = null;
+            side.shown += 1;
+            setSide({ ...side });
+            if (!(await wait(800))) return;
+          }
+          carry = next;
+        }
+        if (side.shown < pd.length) {
+          // the last carry, waiting in front of the divisor, comes down in front of the product
+          const from = corner(-1);
+          const at2 = { x: L.x(colOf(pd.length, 0)) + cellNow / 2, y: yProd + cellNow / 2 };
+          side.carry = 0;
+          side.hop = { x0: from.x, y0: from.y, x1: at2.x, y1: at2.y, value: carry, key: id('sh') };
+          setSide({ ...side });
+          onStatus(`The carry ${carry} goes in front: ${q} × ${divisor} = ${prod}.`);
+          if (!(await wait(HOP_MS))) return;
+          side.hop = null;
+          side.shown = pd.length;
+          setSide({ ...side });
+          if (!(await wait(900))) return;
+        }
+        side.active = null;
+        side.carry = 0;
+        setSide({ ...side });
+        onStatus(`${q} × ${divisor} = ${prod}. Now it goes into its place, under ${cur}.`);
+        if (!(await wait(1100))) return;
+        // The product rises into its place
+        side.fly = true;
+        setSide({ ...side });
+        if (!(await wait(850))) return;
+        setSide(null);
+
+        const product: WorkRow = { id: id('r'), kind: 'product', y: prodY, cells: {}, minusAt: pStart };
         pd.forEach((v: number, t: number) => { product.cells[pStart + t] = { value: v, id: id('p') }; });
         rowsLocal.push(product);
         pushRows();
         yCursor = product.y + cellPx();
-        onStatus(`Write ${prod} under ${cur} and subtract.`);
+        // The two numbers of the subtraction, each in a red frame (as the column being added in multiplication)
+        setFrames([{ y: minRowY, from: minStart, to: k }, { y: product.y, from: pStart, to: k }]);
+        onStatus(`${prod} is under ${cur}: now we subtract ${cur} − ${prod}.`);
         if (!(await wait(1100))) return;
         linesLocal.push({ id: id('l'), y: yCursor + 8, from: Math.min(minStart, pStart), to: k });
         setLines([...linesLocal]);
         yCursor += 8 + 3;
+        // where the difference will go, under the line
+        const mainRemY = yCursor + 8;
+        yCursor = mainRemY + cellPx();
 
-        // The subtraction, digit by digit from the right, with borrows
-        const remRow: WorkRow = { id: id('r'), kind: 'rem', y: yCursor + 8, cells: {} };
-        rowsLocal.push(remRow);
-        yCursor = remRow.y + cellPx();
+        // The subtraction is worked out on the side (Julian): copies of both numbers glide down and to the left, the
+        // difference is found there, digit by digit with borrows, and then glides up into its place
+        const cl0 = cellPx();
+        const X0 = layout.current.x;
+        const leftCol = Math.min(minStart, pStart);
+        const DX = -Math.max(0, Math.min(2.5 * cl0, X0(leftCol) - 90));
+        const SY = mainRemY + cl0 + 40;
         const curDigits = digitsOf(cur);
         const curAt = (c: number) => curDigits[c - (k - curDigits.length + 1)] ?? 0;
         const prodAt = (c: number) => product.cells[c]?.value ?? 0;
+        const sTop: WorkRow = { id: id('r'), kind: 'rem', y: minRowY, cells: {}, dx: 0, move: true };
+        for (let c = minStart; c <= k; c++) sTop.cells[c] = { value: curAt(c), id: id('d') };
+        const sProd: WorkRow = { id: id('r'), kind: 'product', y: product.y, cells: {}, minusAt: pStart, dx: 0, move: true };
+        for (let c = pStart; c <= k; c++) sProd.cells[c] = { value: prodAt(c), id: id('p') };
+        rowsLocal.push(sTop, sProd);
+        pushRows();
+        onStatus(`We take ${cur} and ${prod} aside and subtract them there.`);
+        if (!(await wait(80))) return;
+        sTop.y = SY; sTop.dx = DX;
+        sProd.y = SY + cl0 + 16; sProd.dx = DX;
+        pushRows();
+        if (!(await wait(900))) return;
+        const sLine = { id: id('l'), y: sProd.y + cl0 + 8, from: leftCol, to: k, dx: DX };
+        linesLocal.push(sLine);
+        setLines([...linesLocal]);
+        const remRow: WorkRow = { id: id('r'), kind: 'rem', y: sLine.y + 3 + 8, cells: {}, dx: DX };
+        rowsLocal.push(remRow);
+        const topY = sTop.y;
         let borrow = 0;
         for (let c = k; c >= minStart; c--) {
-          setHl(new Set([`${minRow}:${c}`, `${product.id}:${c}`]));
+          setHl(new Set([`${sTop.id}:${c}`, `${sProd.id}:${c}`]));
           moveIncoming(c);
           if (!(await wait(1000))) return;
           const md = curAt(c);
@@ -157,28 +291,54 @@ export function runDivision({ run, setChips, num1, num2, method, result, layout,
           const next = raw < 0 ? 1 : 0;
           const digit = raw < 0 ? raw + 10 : raw;
           const left = borrow ? `${md} − 1` : `${md}`;
+          const { x: X, cell: cl } = layout.current;
+          // This digit lent 1 to the column on the right: the −1 drops from the borrow mark in its top-right corner
+          // onto it, and it is crossed out with its new value above it (9 → 8). A 0 has nothing to give yet: it
+          // borrows first (below), and becomes 9
+          if (borrow) {
+            setChips(prev => prev.map(ch => (ch.side === 'right' && !ch.fading ? { ...ch, fading: true } : ch)));
+            dropFaded();
+            const rx = X(c) + cl - 16 + DX + 0.6 * CARRY_CHIP, ry = topY - 12 + 0.6 * CARRY_CHIP;
+            setHop({ x0: rx, y0: ry, x1: X(c) + DX + cl / 2, y1: topY + cl / 2, key: id('h'), value: '−1' });
+            if (!(await wait(HOP_MS))) return;
+            setHop(null);
+            if (md > 0) {
+              sTop.crossed = { ...sTop.crossed, [c]: String(md - 1) };
+              pushRows();
+              onStatus(`${md} lent 1 to the column on the right, so it is now ${md - 1}.`);
+              if (!(await wait(1000))) return;
+            }
+          }
           onStatus(next ? `${left} is less than ${pdd} → borrow 10: ${md + 10 - borrow} − ${pdd} = ${digit}` : `${left} − ${pdd} = ${digit}`);
           if (next) {
             // The ten jumps from the digit on the left onto this one, which shows for a moment with the ten added
-            const { x: X, cell: cl } = layout.current;
-            // (just above the digit, so the digit itself stays readable)
-            const cx = X(c) + cl / 2, cy = minRowY - 16;
-            setHop({ x0: X(c - 1) + cl / 2, y0: minRowY + cl / 2, x1: cx, y1: cy, key: id('h') });
+            // (just above the digit, so the digit itself stays readable); then the digit is crossed out with it above
+            const cx = X(c) + DX + cl / 2, cy = topY - 16;
+            setHop({ x0: X(c - 1) + DX + cl / 2, y0: topY + cl / 2, x1: cx, y1: cy, key: id('h') });
             if (!(await wait(HOP_MS))) return;
             setHop(null);
             const withTen = String(md - borrow + 10);
             setPop({ x: cx, y: cy, text: withTen, lead: withTen.length > 1 ? 1 : 0, splitting: false });
             if (!(await wait(1000))) return;
             setPop(prev => (prev ? { ...prev, splitting: true } : prev));
+            sTop.crossed = { ...sTop.crossed, [c]: withTen };
+            pushRows();
+            if (!(await wait(600))) return;
+            setPop(null);
           }
           remRow.cells[c] = { value: digit, id: id('d') };
           pushRows();
-          if (!(await wait(next ? 600 : 900))) return;
-          setPop(null);
+          if (!(await wait(next ? 700 : 900))) return;
           borrow = next;
           if (borrow) {
-            addChip(c, minRowY);
-            if (!(await wait(900))) return;
+            // As the carry in addition: the borrow goes to the pair that made it, from its result digit up into this
+            // column's top-left corner; at the next column it slides on into that column's corner, where it is used
+            onStatus(`We borrowed 1 from the next digit on the left: we mark it.`);
+            setHop({ x0: X(c) + DX + cl / 2, y0: remRow.y + cl / 2, x1: X(c) - 4 + DX + CARRY_CHIP / 2, y1: topY - 12 + CARRY_CHIP / 2, key: id('h'), value: 1 });
+            if (!(await wait(HOP_MS))) return;
+            setHop(null);
+            addChip(c, topY, DX);
+            if (!(await wait(700))) return;
           }
         }
         fadeAll();
@@ -196,6 +356,24 @@ export function runDivision({ run, setChips, num1, num2, method, result, layout,
           pushRows();
           setFadingCells(new Set());
         }
+
+        // The difference glides up into its place under the line; the copies aside fade away, and the frames go
+        onStatus(`${cur} − ${prod} = ${rem}. It goes into its place.`);
+        sTop.fading = true;
+        sProd.fading = true;
+        remRow.move = true;
+        remRow.y = mainRemY;
+        remRow.dx = 0;
+        linesLocal.splice(linesLocal.indexOf(sLine), 1);
+        setLines([...linesLocal]);
+        pushRows();
+        if (!(await wait(900))) return;
+        rowsLocal.splice(rowsLocal.indexOf(sTop), 1);
+        rowsLocal.splice(rowsLocal.indexOf(sProd), 1);
+        remRow.move = false;
+        pushRows();
+        setFrames([]);
+        if (!(await wait(400))) return;
         value = rem;
         minRow = remRow.id;
         minRowY = remRow.y;
@@ -257,7 +435,7 @@ export function runDivision({ run, setChips, num1, num2, method, result, layout,
     onDone();
   })();
 
-  return () => { alive = false; setPop(null); setHop(null); };
+  return () => { alive = false; setPop(null); setHop(null); setSide(null); setFrames([]); };
   // The board runs once, on mount; a reset remounts it (through `key`)
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }

@@ -80,7 +80,16 @@ export function usePageRoom(viewRef: Ref<HTMLDivElement>, colRef: Ref<HTMLDivEle
       const contentLeft = view.getBoundingClientRect().left + parseFloat(getComputedStyle(view).paddingLeft);
       setPageMidX(Math.round((document.documentElement.clientWidth / 2 - contentLeft) * (REM_PX / rootPx) * 10) / 10);
       if (getComputedStyle(col).position !== 'absolute') { setLeftRoom(0); return; }
-      setLeftRoom(Math.max(0, Math.floor((contentLeft - col.getBoundingClientRect().right - 15) * (REM_PX / rootPx))));
+      // The room up to where the N1 / N2 tags start: 66 board px (they grow with the root font size) less 1px after the controls
+      // column's right edge. The boards hold the tags
+      // there (see FitBoard / useAddSubFit), so the numbers never move, and the digit-count drums hang to the left of
+      // the tags (moving them doesn't move anything else, Julian). They may reach over the column's right end: the
+      // buttons are below the operands
+      // Measured from a column of the same width in every operation (8rem: INTEGER / FLOAT's width; division's is wider),
+      // so the drums and the numbers start at the same place everywhere (Julian). The buttons sit below the operands
+      // now (see ControlsColumn), so a wider column doesn't get in their way
+      const colRight = col.getBoundingClientRect().left + 8 * rootPx;
+      setLeftRoom(Math.max(0, Math.floor((contentLeft - colRight + 1) * (REM_PX / rootPx) - 66)));
     };
     measure();
     const ro = new ResizeObserver(measure);

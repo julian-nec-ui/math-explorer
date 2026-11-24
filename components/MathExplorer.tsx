@@ -6,10 +6,11 @@
 // board's frame (BoardView) and the measurements that place them (useLayoutMeasures)
 
 import { useRef, type ReactElement } from 'react';
-import { FRAC_PARTS, cleanNumber, numberValue, useCellSize, type FractionParts } from './math/shared';
+import { DigitDrums, FRAC_PARTS, cleanNumber, numberValue, useCellSize, type DigitDrumsValue, type FractionParts } from './math/shared';
 import { OPERATIONS } from './operations/registry';
 import { ActionButtons } from './explorer/ActionButtons';
 import { BoardView } from './explorer/BoardView';
+import { FRACTION_LABELS, FRACTION_MAX_DIGITS } from './explorer/problem';
 import { ControlsColumn } from './explorer/ControlsColumn';
 import { OperationTabs } from './explorer/OperationTabs';
 import { PageStyles } from './explorer/PageStyles';
@@ -123,6 +124,11 @@ export default function MathExplorer(): ReactElement {
     onCycleFractionDigit: problem.cycleFractionDigit,
   });
 
+  // The digit-count drums, drawn on the board next to each number (see OperandDrum)
+  const drums: DigitDrumsValue = activeOp === 'fractions'
+    ? { value: k => problem.fracCounts[k], max: FRACTION_MAX_DIGITS, set: problem.handleFracCountChange, disabled: isAnimating, label: k => FRACTION_LABELS[k] }
+    : { value: k => problem.digitCounts[activeOp][k === 'n1' || k === 'd1' ? 'n1' : 'n2'], max: 12, set: (k, v) => problem.handleDigitCountChange(k === 'n1' || k === 'd1' ? 'n1' : 'n2', v), disabled: isAnimating, label: k => `${k.toUpperCase()} Digits` };
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col md:flex-row font-sans">
       <PageStyles />
@@ -185,6 +191,7 @@ export default function MathExplorer(): ReactElement {
             <div ref={viewRef} className="steps-scroll flex-1 min-w-0 min-h-0 overflow-auto flex md:pl-60 md:-mt-[0.5625rem]">
               {/* The active operation's board (see operations/registry). Multiplication and division sit in a padded frame and
                   start near the top of the panel, just below the title, at the same height for every operation */}
+              <DigitDrums.Provider value={drums}>
               <BoardView
                 activeOp={activeOp}
                 framed={!!activeConfig.framed}
@@ -198,6 +205,7 @@ export default function MathExplorer(): ReactElement {
                 pageMidX={pageMidX}
                 longest={Math.max(num1.digits.length, num2.digits.length)}
               />
+              </DigitDrums.Provider>
             </div>
 
             </div>

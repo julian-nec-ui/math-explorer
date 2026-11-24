@@ -1,16 +1,20 @@
 "use client";
 
-import type { ReactElement, ReactNode, RefObject } from 'react';
-import { CountDrum, FRAC_PARTS, STEP_DELAYS_MS, toRem, type NumberType } from '../math/shared';
+import { useLayoutEffect, useState, type ReactElement, type ReactNode, type RefObject } from 'react';
+import { CountDrum, REM_PX, STEP_DELAYS_MS, toRem, type NumberType } from '../math/shared';
 import SevenSeg, { formatElapsed } from '../math/SevenSeg';
 import type { DivisionMethod, DivisionResult } from '../operations/basic/DivisionBoard';
 import { BOARD_LIFT, COL_DROP, DRUM_BOX_H, EDGE_5 } from './constants';
-import { FRACTION_LABELS, FRACTION_MAX_DIGITS } from './problem';
 import type { Problem } from './useProblem';
 
 // Integer / Float / Redo (+ the decimal method in division, + the decimal places for floats). From md up: on the line of the first operand (N1), aligned with the left edge of the canvas
 // (N1's cells start 60px down the board area: 16px padding + 44px, so this is centred on them).
 // On a phone: a normal row above the board (the inline `top` only applies when positioned)
+// The step delay's drum sits 6px further right than the column's edge (Julian), and the buttons whose right side is on
+// that edge (FLOAT, Redo, Pause, and in division CLASSIC, EQUAL DECIMALS and DECIMALS) reach out the same 6px, so they
+// all end in line with it
+const EDGE_3 = '-mr-[6px]';
+
 export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAnimating, paused, hasWork, blocked, stepDelay, setStepDelay, onRedo, onTogglePause, band }: {
   colRef: RefObject<HTMLDivElement | null>; cell: number; timerGap: number; elapsed: number; problem: Problem; isAnimating: boolean;
   paused: boolean; hasWork: boolean; blocked: string | null; stepDelay: number; setStepDelay: (v: number) => void;
@@ -18,42 +22,43 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
   // The control band, when it doesn't fit on the title's row (null otherwise)
   band: ReactNode;
 }): ReactElement {
-  const { activeOp, digitCounts, fracCounts, numberTypes, divisionMethod, effectiveDivisionResult, handleDigitCountChange, handleFracCountChange, effectiveDecimals, changeDecimals, chooseType, chooseDivisionMethod, chooseDivisionResult } = problem;
+  void timerGap; // (the timer now sits a fixed 25px above the drums' box)
+  // From md up, except in fractions (Julian): the buttons come down, INTEGER / FLOAT's top on the line under the
+  // operands (division: on its =), so they keep clear of the digit-count drums on the board. Measured on the page (the board's `data-opline`), again after every render, resize and transition
+  const defaultTop = 60 - BOARD_LIFT + COL_DROP + (2 * cell + 34 - DRUM_BOX_H) / 2;
+  const [lineTop, setLineTop] = useState<number | null>(null);
+  const followLine = problem.activeOp !== 'fractions';
+  useLayoutEffect(() => {
+    const measure = () => {
+      const col = colRef.current, parent = col?.offsetParent as HTMLElement | null;
+      const line = document.querySelector('[data-opline]'), anchor = col?.querySelector('[data-colanchor]');
+      if (!col || !parent || !line || !anchor || !followLine || getComputedStyle(col).position !== 'absolute') { setLineTop(null); return; }
+      const k = REM_PX / (parseFloat(getComputedStyle(document.documentElement).fontSize) || REM_PX);
+      const l = line.getBoundingClientRect(), a = anchor.getBoundingClientRect(), c = col.getBoundingClientRect();
+      // INTEGER / FLOAT's top edge 25px under the line's top edge (Julian); division's = is a glyph: on its middle
+      const ly = line.getAttribute('data-opline') === 'center' ? l.top + l.height / 2 : l.top;
+      const top = Math.round(((ly - parent.getBoundingClientRect().top - (a.top - c.top)) * k + 25) * 2) / 2; // 25px under it (Julian)
+      setLineTop(prev => (prev !== null && Math.abs(prev - top) < 0.5 ? prev : top));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    document.addEventListener('transitionend', measure, true);
+    return () => { window.removeEventListener('resize', measure); document.removeEventListener('transitionend', measure, true); };
+  });
+  const colTop = followLine && lineTop !== null ? lineTop : defaultTop;
+  const { activeOp, numberTypes, divisionMethod, effectiveDivisionResult, effectiveDecimals, changeDecimals, chooseType, chooseDivisionMethod, chooseDivisionResult } = problem;
   return (
-    <div ref={colRef} className={`flex flex-col gap-2 w-full md:w-max md:max-w-60 md:absolute md:left-0 ${EDGE_5} md:z-10`} style={toRem({ top: 60 - BOARD_LIFT + COL_DROP + (2 * cell + 34 - DRUM_BOX_H) / 2 })}>
+    <div ref={colRef} className={`flex flex-col gap-2 w-full md:w-max md:max-w-60 md:absolute md:left-0 ${EDGE_5} md:z-10`} style={toRem({ top: colTop })}>
       {/* The digit drums' box, INTEGER | FLOAT under it, Redo under them (as wide as both), then in division
           CLASSIC and EQUAL DECIMALS, each on its own row: everything as wide as the drums' box (Julian) */}
-      {/* Elapsed time (Julian): halfway between the title and the drums' box, its right end in line with the column's
-          (desktop: the column is placed absolutely, under the title) */}
-      <div className="hidden md:flex absolute right-0 translate-y-1/2" style={{ bottom: `calc(100% + ${timerGap / 2}px - ${COL_DROP / 2 / 16}rem)` }}>
-        <SevenSeg text={formatElapsed(elapsed)} label={`Elapsed time ${formatElapsed(elapsed)}`} />
-      </div>
       {/* On a phone (under md) the column is a normal row above the board: the elapsed time on its own line, at the top,
           centred */}
-      <div className="flex md:hidden justify-center">
+      <div className="flex md:hidden items-center justify-center gap-2">
+        <span aria-hidden="true" className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap text-zinc-400">Time elapsed</span>
         <SevenSeg text={formatElapsed(elapsed)} label={`Elapsed time ${formatElapsed(elapsed)}`} />
       </div>
       <div className="grid w-full md:w-max grid-cols-[auto_1fr] gap-2">
-      {/* How many digits each number has: a steel drum per number (always open, no three dots; 1 to 12, fractions:
-          one per numerator / denominator, 1 to 6), each after its label, in their own box (same background as
-          the control band): the grid's first row, spanning both columns. From md up it is centred on the first
-          operand's digits (N1); 20px down to INTEGER (the grid's 8px gap plus mb-3) */}
-      <div className="col-span-2 mb-3">
-        {/* One under the other, N1 first; 12px between the drums, the same as from the drums to the box's edges
-            (Julian) */}
-        <div className="flex flex-col gap-3 bg-zinc-800/50 p-3 rounded-2xl border border-zinc-700" role="group" aria-label={activeOp === 'fractions' ? 'Digits of the fractions' : 'Digits'}>
-          {(activeOp === 'fractions'
-            ? FRAC_PARTS.map(k => ({ key: k, label: FRACTION_LABELS[k], first: k.endsWith('1'), value: fracCounts[k], max: FRACTION_MAX_DIGITS, set: (v: number) => handleFracCountChange(k, v) }))
-            : (['n1', 'n2'] as const).map(k => ({ key: k, label: `${k.toUpperCase()} Digits`, first: k === 'n1', value: digitCounts[activeOp][k], max: 12, set: (v: number) => handleDigitCountChange(k, v) }))
-          ).map(d => (
-            <div key={d.key} className="flex items-center justify-between gap-1.5">
-              {/* The label on the drum's row, on one line */}
-              <span className={`text-[8px] font-bold uppercase whitespace-nowrap ${d.first ? 'text-cyan-500' : 'text-pink-500'}`}>{d.label}</span>
-              <CountDrum value={d.value} min={1} max={d.max} onChange={d.set} color={d.first ? 'cyan' : 'pink'} disabled={isAnimating} label={`${d.label}: ${d.value}`} />
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* How many digits each number has: now on the board, next to each number (see OperandDrum) */}
       {(['integer', 'float'] as NumberType[]).map(t => {
         const active = numberTypes[activeOp] === t;
         return (
@@ -63,8 +68,9 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
             disabled={isAnimating || activeOp === 'fractions'}
             title={activeOp === 'fractions' ? 'Fractions use whole numbers' : undefined}
             key={t}
+            data-colanchor={t === 'integer' ? '' : undefined}
             onClick={() => chooseType(t)}
-            className={`whitespace-nowrap px-2 py-1 rounded-lg text-xs font-bold border cursor-pointer transition-all hover:-translate-y-px hover:shadow-[0_0_10px_rgba(6,182,212,0.35)] disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none ${active ? 'bg-cyan-500/10 border-cyan-500 text-cyan-500 hover:bg-cyan-500/20' : 'border-zinc-700 text-zinc-500 hover:border-cyan-700 hover:text-cyan-300'}`}
+            className={`whitespace-nowrap px-2 py-1 rounded-lg text-xs font-bold border cursor-pointer transition-all hover:-translate-y-px hover:shadow-[0_0_10px_rgba(6,182,212,0.35)] disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none ${t === 'float' ? EDGE_3 : ''} ${active ? 'bg-cyan-500/10 border-cyan-500 text-cyan-500 hover:bg-cyan-500/20' : 'border-zinc-700 text-zinc-500 hover:border-cyan-700 hover:text-cyan-300'}`}
           >
             {t.toUpperCase()}
           </button>
@@ -77,7 +83,7 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
         onClick={onRedo}
         disabled={isAnimating || !hasWork || !!blocked}
         title={blocked ?? 'Back to the problem as it was entered'}
-        className="col-span-2 px-2 py-1 rounded-lg border text-xs font-bold leading-4 whitespace-nowrap transition-all text-white text-shadow-[0_1px_1px_rgba(0,0,0,0.3)] border-[#1b55b8] bg-linear-to-l from-[#22b8d6] to-[#1d5fd1] shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.25),0_2px_5px_rgba(0,0,0,0.35)] hover:-translate-y-px hover:from-[#3cc8e4] hover:to-[#2a6fe0] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.28),inset_0_-1px_0_rgba(0,0,0,0.25),0_2px_10px_rgba(34,184,214,0.45)] active:translate-y-0 disabled:bg-none disabled:bg-transparent disabled:border-zinc-700 disabled:text-zinc-500 disabled:shadow-none disabled:text-shadow-none disabled:hover:translate-y-0 disabled:cursor-default"
+        className={`col-span-2 ${EDGE_3} px-2 py-1 rounded-lg border text-xs font-bold leading-4 whitespace-nowrap transition-all text-white text-shadow-[0_1px_1px_rgba(0,0,0,0.3)] border-[#1b55b8] bg-linear-to-l from-[#22b8d6] to-[#1d5fd1] shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.25),0_2px_5px_rgba(0,0,0,0.35)] hover:-translate-y-px hover:from-[#3cc8e4] hover:to-[#2a6fe0] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.28),inset_0_-1px_0_rgba(0,0,0,0.25),0_2px_10px_rgba(34,184,214,0.45)] active:translate-y-0 disabled:bg-none disabled:bg-transparent disabled:border-zinc-700 disabled:text-zinc-500 disabled:shadow-none disabled:text-shadow-none disabled:hover:translate-y-0 disabled:cursor-default`}
       >
         Redo
       </button>
@@ -86,8 +92,8 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
           the other controls it works while an explanation runs: the step under way finishes as it was, the
           next ones take the new delay */}
       <div className="col-span-2 mt-1 flex items-center justify-between" role="group" aria-label="Step delay">
-        <span className="text-[8px] font-bold uppercase whitespace-nowrap text-cyan-500">Step delay</span>
-        <div>
+        <span className="text-[8.8px] font-bold uppercase whitespace-nowrap text-cyan-500">Step delay</span>
+        <div className="relative left-[6px]">
           <CountDrum
             value={stepDelay}
             min={0}
@@ -110,7 +116,7 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
         disabled={!isAnimating}
         aria-pressed={paused}
         title={paused ? 'Go on from here' : 'Stop for a moment, exactly here'}
-        className={`col-span-2 mt-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-black uppercase tracking-[1.5px] text-white text-shadow-[0_1px_1px_rgba(0,0,0,0.45)] cursor-pointer transition-[transform,box-shadow,filter] duration-150 ease-out shadow-[inset_0_1px_0_rgba(255,255,255,0.45),inset_0_-2px_0_rgba(0,0,0,0.25),0_3px_0_rgba(0,0,0,0.45),0_6px_12px_rgba(0,0,0,0.35)] hover:brightness-110 active:translate-y-0.5 active:scale-[0.97] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-1px_0_rgba(0,0,0,0.25),0_1px_0_rgba(0,0,0,0.45),0_2px_5px_rgba(0,0,0,0.35)] disabled:opacity-40 disabled:cursor-default disabled:hover:brightness-100 disabled:active:translate-y-0 disabled:active:scale-100 ${paused ? 'border-[#145c2a] bg-linear-[90deg,#1d7a3c_0%,#2a9a4e_35%,#4fbf6f_55%,#23864a_80%,#165f30_100%]' : 'border-[#7a5200] bg-linear-[90deg,#b07a00_0%,#d69a0a_35%,#f0bd3a_55%,#c88a00_80%,#946400_100%]'}`}
+        className={`col-span-2 ${EDGE_3} mt-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-black uppercase tracking-[1.5px] text-white text-shadow-[0_1px_1px_rgba(0,0,0,0.45)] cursor-pointer transition-[transform,box-shadow,filter] duration-150 ease-out shadow-[inset_0_1px_0_rgba(255,255,255,0.45),inset_0_-2px_0_rgba(0,0,0,0.25),0_3px_0_rgba(0,0,0,0.45),0_6px_12px_rgba(0,0,0,0.35)] hover:brightness-110 active:translate-y-0.5 active:scale-[0.97] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-1px_0_rgba(0,0,0,0.25),0_1px_0_rgba(0,0,0,0.45),0_2px_5px_rgba(0,0,0,0.35)] disabled:opacity-40 disabled:cursor-default disabled:hover:brightness-100 disabled:active:translate-y-0 disabled:active:scale-100 ${paused ? 'border-[#145c2a] bg-linear-[90deg,#1d7a3c_0%,#2a9a4e_35%,#4fbf6f_55%,#23864a_80%,#165f30_100%]' : 'border-[#7a5200] bg-linear-[90deg,#b07a00_0%,#d69a0a_35%,#f0bd3a_55%,#c88a00_80%,#946400_100%]'}`}
       >
         {paused ? (
           <svg viewBox="0 0 12 12" className="w-3 h-3" aria-hidden="true"><path d="M3 1.5 10.5 6 3 10.5z" fill="currentColor" /></svg>
@@ -119,6 +125,16 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
         )}
         {paused ? 'Resume' : 'Pause'}
       </button>
+      {/* Elapsed time (Julian), from md up: under Pause, 25px apart (the grid's 8px gap + 17px); TIME ELAPSED over the
+          digits, both centred under the buttons (the edge they share with the step delay's drum) */}
+      {/* (placed absolutely in a row as tall as it is: the timer is a little wider than the buttons and must not widen
+          the column) */}
+      <div className={`hidden md:block col-span-2 ${EDGE_3} mt-[17px] relative h-[2.6875rem]`}>
+        <div className="absolute left-1/2 top-0 -translate-x-1/2 flex flex-col items-center gap-1.5">
+          <span aria-hidden="true" className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap text-zinc-400">Time elapsed</span>
+          <SevenSeg text={formatElapsed(elapsed)} label={`Elapsed time ${formatElapsed(elapsed)}`} />
+        </div>
+      </div>
       {/* Division only: how the decimal points are moved before dividing (the grid's second row) */}
       {activeOp === 'division' ? (
         <div className="contents" role="group" aria-label="Decimal method">
@@ -135,7 +151,7 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
                 title={hint}
                 aria-pressed={active}
                 onClick={() => chooseDivisionMethod(m)}
-                className={`col-span-2 whitespace-nowrap px-2 py-1 rounded-lg text-xs font-bold border cursor-pointer transition-all hover:-translate-y-px hover:shadow-[0_0_10px_rgba(6,182,212,0.35)] disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none ${active ? 'bg-cyan-500/10 border-cyan-500 text-cyan-500 hover:bg-cyan-500/20' : 'border-zinc-700 text-zinc-500 hover:border-cyan-700 hover:text-cyan-300'}`}
+                className={`col-span-2 ${EDGE_3} ${m === 'classic' ? 'md:mt-[17px]' : ''} whitespace-nowrap px-2 py-1 rounded-lg text-xs font-bold border cursor-pointer transition-all hover:-translate-y-px hover:shadow-[0_0_10px_rgba(6,182,212,0.35)] disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none ${active ? 'bg-cyan-500/10 border-cyan-500 text-cyan-500 hover:bg-cyan-500/20' : 'border-zinc-700 text-zinc-500 hover:border-cyan-700 hover:text-cyan-300'}`}
               >
                 {label}
               </button>
@@ -156,7 +172,7 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
                 title={locked ? 'Numbers with decimals always give a result with decimals' : hint}
                 aria-pressed={active}
                 onClick={() => chooseDivisionResult(r)}
-                className={`whitespace-nowrap px-2 py-1 rounded-lg text-xs font-bold border cursor-pointer transition-all hover:-translate-y-px hover:shadow-[0_0_10px_rgba(6,182,212,0.35)] disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none mt-2 ${active ? 'bg-cyan-500/10 border-cyan-500 text-cyan-500 hover:bg-cyan-500/20' : 'border-zinc-700 text-zinc-500 hover:border-cyan-700 hover:text-cyan-300'}`}
+                className={`whitespace-nowrap px-2 py-1 rounded-lg text-xs font-bold border cursor-pointer transition-all hover:-translate-y-px hover:shadow-[0_0_10px_rgba(6,182,212,0.35)] disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none mt-2 ${r === 'decimals' ? EDGE_3 : ''} ${active ? 'bg-cyan-500/10 border-cyan-500 text-cyan-500 hover:bg-cyan-500/20' : 'border-zinc-700 text-zinc-500 hover:border-cyan-700 hover:text-cyan-300'}`}
               >
                 {label}
               </button>
