@@ -78,7 +78,7 @@ jobs:
       # added on top. Your repository is not changed.
       - name: Force static export
         env:
-          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          BASE_PATH: ${{ steps.pages.outputs.base_path || format('/{0}', github.event.repository.name) }}
         run: |
           cfg=""
           for f in next.config.ts next.config.mjs next.config.js; do
@@ -120,7 +120,7 @@ jobs:
 
       - name: Check export
         env:
-          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          BASE_PATH: ${{ steps.pages.outputs.base_path || format('/{0}', github.event.repository.name) }}
         run: |
           if [ ! -f out/index.html ]; then
             echo "::error::The build made no ./out/index.html"
