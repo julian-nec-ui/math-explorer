@@ -1,10 +1,19 @@
 "use client";
 
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react';
-import { CarryHop, Digit, OpIcon, OperandDrum, commaAfter, numberValue, type DigitVariant, type FracPart } from '../../math/shared';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactElement } from 'react';
+import { CarryHop, Digit, OpIcon, OperandDrum, commaAfter, drumScaleFor, numberValue, type DigitVariant, type FracPart } from '../../math/shared';
 import { Bracket, Crossable, FracComma, EXPR_GAP, Eq, FR_HOP_END, FR_HOP_MS, FR_LAND_MS, FactorChip, type Frac, FracView, type FractionBoardProps, type Hop, MAX_WHOLE_PIECES, MIN_FIT, type Mark, Mul, Num, Paren, SignMark, SmallEq, Times, WarningIcon, gcd, lcm, primeFactors } from './model';
 import { runFractions } from './script';
 export { hasZeroDenominator } from './model';
+
+const MD_QUERY = '(min-width: 48rem)';
+const subscribeMd = (cb: () => void) => {
+  const q = window.matchMedia(MD_QUERY);
+  q.addEventListener('change', cb);
+  return () => q.removeEventListener('change', cb);
+};
+let lastFit = 1;
+const FIT_MS = 600;
 
 export default function FractionBoard({ num1, num2, run, onStatus, onDone, renderSign, hoverEdit = false, availableWidth, fraction, onCycleFractionDigit }: FractionBoardProps): ReactElement {
   const f1: Frac = { n: numberValue(fraction.n1), d: numberValue(fraction.d1), s: num1.sign };
@@ -87,18 +96,52 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
   // signs, lines, chips, brackets) until it fits, but never below MIN_FIT (75%); from there the rows wrap. Measured
   // after every render, at the natural size (the measured widths divided by the current zoom)
   const contentRef = useRef<HTMLDivElement>(null);
-  const [fit, setFit] = useState(1);
+  // (the board is made anew for every new problem: it starts at the last scale, so it doesn't jump)
+  const [fit, setFitState] = useState(() => lastFit);
+  // A new scale is reached gently (Julian: slower), over FIT_MS, frame by frame (CSS zoom itself can't be animated);
+  // the measurements use the scale drawn at that moment, so the target stays the same while it glides
+  const fitAnim = useRef<{ target: number; raf: number }>({ target: lastFit, raf: 0 });
+  const fitNow = useRef(fit);
+  fitNow.current = fit;
+  const setFit = (f: number) => {
+    const a = fitAnim.current;
+    if (Math.abs(a.target - f) < 0.01) return;
+    a.target = f;
+    lastFit = f;
+    cancelAnimationFrame(a.raf);
+    const from = fitNow.current, t0 = performance.now();
+    const step = (t: number) => {
+      const k = Math.min(1, (t - t0) / FIT_MS), e = 1 - Math.pow(1 - k, 3);
+      setFitState(from + (f - from) * e);
+      if (k < 1) a.raf = requestAnimationFrame(step);
+    };
+    a.raf = requestAnimationFrame(step);
+  };
+  useEffect(() => () => cancelAnimationFrame(fitAnim.current.raf), []);
+  // From md up (Julian): the fractions start 6.0625rem in from the board area's left edge and their digit-count drums
+  // stay put (place and size: their own zoom undoes the board's, see drumZoom); the numbers grow to the right, and the
+  // board only shrinks when it would reach the steps window (3px before it), as in addition / subtraction
+  // (read at once, not after the first paint: the board is made anew for every new problem, and one frame without the
+  // margin made the fractions jump left and back)
+  const mdUp = useSyncExternalStore(subscribeMd, () => window.matchMedia(MD_QUERY).matches, () => false);
   useLayoutEffect(() => {
-    const row = contentRef.current?.querySelector<HTMLElement>('[data-expr]');
-    if (!row || !availableWidth) return;
+    const el = contentRef.current, row = el?.querySelector<HTMLElement>('[data-expr]');
+    if (!el || !row || !availableWidth) return;
     const items = [...row.children] as HTMLElement[];
-    // (+ the content's left margin from md up: it starts that far in, see below)
-    const margin = parseFloat(getComputedStyle(contentRef.current!).marginLeft) || 0;
-    const natural = items.reduce((w, c) => w + c.getBoundingClientRect().width / fit, 0) + EXPR_GAP * Math.max(0, items.length - 1) + margin;
-    // 2% to spare, so rounding never pushes the last part onto a new row
-    const next = Math.max(MIN_FIT, Math.min(1, (availableWidth - 16) / Math.max(1, natural * 1.02)));
-    if (Math.abs(next - fit) > 0.02) setFit(next);
+    // the drums' column: the same size on screen at any zoom
+    const dW = el.querySelector<HTMLElement>('[data-fracdrums]')?.getBoundingClientRect().width ?? 0;
+    const S = items.reduce((w, c) => w + c.getBoundingClientRect().width, 0);
+    const rest = (S - dW) / fit + EXPR_GAP * Math.max(0, items.length - 1);
+    const area = el.closest('.steps-scroll')?.getBoundingClientRect();
+    const start = el.parentElement?.getBoundingClientRect().left ?? 0;
+    const margin = parseFloat(getComputedStyle(el).marginLeft) * fit || 0;
+    // the room on screen: up to 3px before the steps window (the board area's right edge); else as before
+    const room = mdUp && area ? area.right - 3 - start - margin : (availableWidth - 16);
+    const next = Math.max(MIN_FIT, Math.min(1, (room - (mdUp ? dW : 0)) / Math.max(1, rest * 1.01)));
+    setFit(next);
   });
+  // The drums' own zoom: back to their normal size (as in the other operations, they shrink only a little, late)
+  const drumZoom = drumScaleFor(fit) / fit;
 
   if (!ready) return <div />;
   const editable = hoverEdit && !run;
@@ -155,7 +198,7 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
     <div className="flex flex-col items-center md:items-start">
     {/* Zoomed to fit (see `fit`), and at most as wide as the board area, so the rows wrap (the second fraction under
         the first) instead of scrolling */}
-    <div ref={contentRef} className="flex flex-col items-center md:items-start md:ml-[6.0625rem]" style={{ zoom: fit, maxWidth: availableWidth ? Math.max(320, availableWidth - 16 - (typeof window !== 'undefined' && window.matchMedia('(min-width: 48rem)').matches ? 97 : 0)) / fit : undefined }}>
+    <div ref={contentRef} className="flex flex-col items-center md:items-start" style={{ zoom: fit, marginLeft: mdUp ? `${6.0625 / fit}rem` : undefined, maxWidth: mdUp ? undefined : availableWidth ? Math.max(320, availableWidth - 16) / fit : undefined }}>
       <div data-expr className="flex flex-wrap items-center justify-center md:justify-start gap-x-5 gap-y-4">
         {/* The problem (Julian): the second fraction under the first, both starting at the same place, each with its
             sign in round brackets and its digit-count drums on its left (half as far from the bracket as before); the
@@ -163,7 +206,7 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
         <div className="grid grid-cols-[auto_auto] items-center">
           <div className="flex items-stretch gap-2">
             {/* How many digits its numerator and denominator have (see OperandDrum) */}
-            <div className="relative right-[0.28125rem] flex flex-col justify-center gap-3 mr-1"><OperandDrum part="n1" /><OperandDrum part="d1" /></div>
+            <div data-fracdrums className="relative right-[0.28125rem] flex flex-col justify-center gap-3 mr-1" style={{ zoom: drumZoom }}><OperandDrum part="n1" /><OperandDrum part="d1" /></div>
             <Bracket side="left" />
             <div className="flex items-center gap-2">{renderSign('n1', num1.sign)}{problemFrac('n1', f1, amp1)}</div>
             <Bracket side="right" />
@@ -173,7 +216,7 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
           <span className="text-cyan-500 -ml-[1.1875rem]"><OpIcon op="addition" /></span>
           <div className="flex items-stretch gap-2">
             {/* How many digits its numerator and denominator have (see OperandDrum) */}
-            <div className="relative right-[0.28125rem] flex flex-col justify-center gap-3 mr-1"><OperandDrum part="n2" /><OperandDrum part="d2" /></div>
+            <div data-fracdrums className="relative right-[0.28125rem] flex flex-col justify-center gap-3 mr-1" style={{ zoom: drumZoom }}><OperandDrum part="n2" /><OperandDrum part="d2" /></div>
             <Bracket side="left" />
             <div className="flex items-center gap-2">{renderSign('n2', num2.sign)}{problemFrac('n2', f2, amp2)}</div>
             <Bracket side="right" />

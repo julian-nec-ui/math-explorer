@@ -875,6 +875,9 @@
   .justify-end {
     justify-content: flex-end;
   }
+  .justify-start {
+    justify-content: flex-start;
+  }
   .gap-0\.5 {
     gap: calc(var(--spacing) * 0.5);
   }
@@ -2418,6 +2421,9 @@
     .md\:left-0 {
       left: 0px;
     }
+    .md\:left-\[6px\] {
+      left: 6px;
+    }
     .md\:z-10 {
       z-index: 10;
     }
@@ -2475,8 +2481,14 @@
     .md\:items-start {
       align-items: flex-start;
     }
+    .md\:justify-between {
+      justify-content: space-between;
+    }
     .md\:justify-start {
       justify-content: flex-start;
+    }
+    .md\:gap-0 {
+      gap: 0px;
     }
     .md\:p-6 {
       padding: calc(var(--spacing) * 6);

@@ -87,13 +87,13 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
       >
         Redo
       </button>
-      {/* Step delay (Julian): extra time after each explanation step, 0 / 0.5 / 1 / 1.5 / 2 s, on a drum like the digit
+      {/* Step delay (Julian; on a phone the drum sits 15px after its label, from md up at the column's right edge): extra time after each explanation step, 0 / 0.5 / 1 / 1.5 / 2 s, on a drum like the digit
           counts (it stops at 0 and 2); the label left-aligned with Redo, the drum right-aligned with FLOAT. Unlike
           the other controls it works while an explanation runs: the step under way finishes as it was, the
           next ones take the new delay */}
-      <div className="col-span-2 mt-1 flex items-center justify-between" role="group" aria-label="Step delay">
+      <div className="col-span-2 mt-1 flex items-center justify-start gap-[0.9375rem] md:justify-between md:gap-0" role="group" aria-label="Step delay">
         <span className="text-[8.8px] font-bold uppercase whitespace-nowrap text-cyan-500">Step delay</span>
-        <div className="relative left-[6px]">
+        <div className="relative md:left-[6px]">
           <CountDrum
             value={stepDelay}
             min={0}
