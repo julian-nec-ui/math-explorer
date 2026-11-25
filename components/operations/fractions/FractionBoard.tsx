@@ -150,7 +150,7 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
     setFit(!mdUp && availableHeight && hNat ? Math.min(next, Math.max(0.4, (availableHeight - 20) / hNat)) : next);
   });
   // The drums' own zoom: back to their normal size (as in the other operations, they shrink only a little, late)
-  const drumZoom = drumScaleFor(fit) / fit;
+  const drumZoom = drumScaleFor(fit, !mdUp) / fit;
 
   if (!ready) return <div />;
   const editable = hoverEdit && !run;

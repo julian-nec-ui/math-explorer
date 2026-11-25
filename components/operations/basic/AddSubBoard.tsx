@@ -8,7 +8,7 @@
 
 import { useContext, useState, useEffect, useRef, Fragment, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { CELL, CELL_W, REM_PX, OperandTag, OperandDrum, DigitDrums, DrumZoom, drumScaleFor, DRUM_REACH, DRUM_W, CarryHop, Digit, SumPop, OpIcon, ResultSign, toRem, useCellSize, intLength, CARRY_CHIP, BORROW_CHIP, chipSize, pickVariant, type NumberData, type BadgeKind } from '../../math/shared';
+import { usePhone, CELL, CELL_W, REM_PX, OperandTag, OperandDrum, DigitDrums, DrumZoom, drumScaleFor, DRUM_REACH, DRUM_W, CarryHop, Digit, SumPop, OpIcon, ResultSign, toRem, useCellSize, intLength, CARRY_CHIP, BORROW_CHIP, chipSize, pickVariant, type NumberData, type BadgeKind } from '../../math/shared';
 import { type AddSubBoardProps, type Badge, COMMA_SLOT, CommaSeparator, type CustomCSSProperties, DOT_OUTER, DecimalPoint, type DotState, EmptyCell, type ExprFly, type FlightData, G, type ResultDigit, type RewrittenView, digitAt } from './addsub/model';
 import { runAddSub } from './addsub/script';
 import { useAddSubFit } from './addsub/useFit';
@@ -18,6 +18,7 @@ export default function AddSubBoard({ op, num1, num2, run, onStatus, onDone, ren
   // The digit-count drums sit left of the N1 / N2 tags: the board keeps room for them too (see OperandDrum)
   const hasDrums = !!useContext(DigitDrums);
   const [mounted, setMounted] = useState(false);
+  const phone = usePhone();
   useEffect(() => setMounted(true), []);
   const { rootRef, natural, fit, shift, fitRef, drop } = useAddSubFit({ num1, num2, availableWidth, availableHeight, leftRoom, stepsClosed, pageMidX, onNaturalWidth });
   const [result, setResult] = useState<Record<number, ResultDigit>>({});
@@ -339,7 +340,7 @@ export default function AddSubBoard({ op, num1, num2, run, onStatus, onDone, ren
   );
 
   return (
-    <DrumZoom.Provider value={drumScaleFor(fit) / fit}>
+    <DrumZoom.Provider value={drumScaleFor(fit, phone) / fit}>
     {/* Scaled to fit: the outer box takes the scaled size (so the page lays it out at that size), the board inside is
         drawn at its natural size and scaled from its top-left corner */}
     {/* Moved left (desktop): the outer box is `shift` narrower and the board starts `shift` before it, so the page lays
@@ -372,7 +373,8 @@ export default function AddSubBoard({ op, num1, num2, run, onStatus, onDone, ren
           </>
         );
       })()}
-      <div className="flex items-end gap-1.5 h-7 relative">
+      {/* (Julian) on a phone the numbers come 8px closer to the carry row, so they sit nearer Explain to Me */}
+      <div className="flex items-end gap-1.5 h-7 relative max-md:-mb-2">
         <div className="w-10 shrink-0" />
         {renderCarryRow()}
         {renderCarryBadges()}
@@ -412,7 +414,7 @@ export default function AddSubBoard({ op, num1, num2, run, onStatus, onDone, ren
       <div ref={lineRef} data-opline className={`h-1 bg-zinc-700 my-2 rounded-full ${view?.outerMinus ? 'self-start' : ''}`}
         style={view?.outerMinus ? toRem({ marginLeft: 4 - OUTER_PAD, width: outerRight })
           // (Julian) It reaches left under the digit-count drums too (drawn bigger when the board shrinks: DrumZoom)
-          : hasDrums && !view ? toRem({ marginLeft: Math.min(0, operandSignLeft - DRUM_REACH - DRUM_W * (drumScaleFor(fit) / fit - 1)) }) : undefined} />
+          : hasDrums && !view ? toRem({ marginLeft: Math.min(0, operandSignLeft - DRUM_REACH - DRUM_W * (drumScaleFor(fit, phone) / fit - 1)) }) : undefined} />
 
       <div className="flex items-end gap-1.5 relative">
         <div className="w-10 shrink-0" />

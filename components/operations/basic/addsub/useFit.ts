@@ -90,7 +90,7 @@ export function useAddSubFit({ num1, num2, availableWidth, availableHeight, left
     : anchored ? Math.max(wide ? ADD_MIN_FIT_DESK : ADD_MIN_FIT_SMALL, Math.min(1, (viewW + room) / Math.max(1, natural.w - (natural.tl ?? 0))))
     : wide ? Math.max(ADD_MIN_FIT_DESK, Math.min(1, (viewW + room) / natural.w, right11 === null ? 1 : (right11 + room) / natural.w))
     // tablet / phone: fit the screen
-    : solveFit(natural.dw, extra => Math.max(ADD_MIN_FIT_SMALL, Math.min(1, ((availableWidth ?? 0) + 8) / (natural.w + extra))));
+    : solveFit(natural.dw, extra => Math.max(ADD_MIN_FIT_SMALL, Math.min(1, ((availableWidth ?? 0) + 8) / (natural.w + extra))), phone);
   // A phone: also as tall as the room above the open steps window, down to 40% (Julian: the sum mustn't run under it)
   const fitH = natural && phone && availableHeight && natural.h ? Math.max(0.4, Math.min(1, (availableHeight - 4) / natural.h)) : 1;
   const fit = Math.min(fitW, fitH);
@@ -106,7 +106,7 @@ export function useAddSubFit({ num1, num2, availableWidth, availableHeight, left
     : anchored ? Math.max(0, ((availableWidth ?? 0) + 16 - W) / 2) + (natural.tl ?? 0) * fit + room
     // a phone: the drums (their left edge, drawn a little bigger when the board shrinks) at the area's left edge, in
     // line with the Explain to Me box (Julian)
-    : phone ? Math.max(0, ((availableWidth ?? 0) + 16 - W) / 2) + (natural.dl - drumExtra(natural.dw, fit)) * fit + edge
+    : phone ? Math.max(0, ((availableWidth ?? 0) + 16 - W) / 2) + (natural.dl - drumExtra(natural.dw, fit, phone)) * fit + edge
     : stepsClosed && pageMidX !== undefined ? Math.max(0, (viewW - W) / 2) - closedLeft
     : !wide ? 0
     : right11 === null ? shiftFor(W, (ADD_SHIFT_MAX * Math.max(0, longest - 1)) / 11)

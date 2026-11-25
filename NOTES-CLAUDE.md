@@ -576,3 +576,8 @@ Totul arată și se comportă exact ca înainte (verificat: HTML-ul paginii iden
   - Unde nu există undo (pauză în mijlocul unui pas, înmulțire / împărțire / fracții deocamdată), copia se estompează spre pasul anterior.
 - `navReset` aruncă timerele tablei vechi: scriptul vechi nu mai continuă.
 - Overlays din AddSubBoard sunt în `<div data-mx-overlays>`, ca să fie copiate și ascunse.
+
+## Telefon: rotițe mai mari, tabla mai sus (25 nov 2026)
+- `drumScaleFor(fit, phone)`: pe telefon rotițele pornesc de la 125% și rămân așa cât timp tabla e la 80% sau mai mult. Apoi scad blând până la curba normală (minimum 80%). `drumExtra` și `solveFit` primesc și ele `phone`.
+- Adunare/scădere pe telefon: rândul de carry e cu 8px mai aproape de N1 (`max-md:-mb-2`), deci numerele sunt mai aproape de Explain to Me.
+- Pe telefon: 4px între step delay, Pause, Prev/Next și banda Explain to Me.

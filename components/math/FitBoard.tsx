@@ -111,7 +111,7 @@ export default function FitBoard({ children, availableWidth, leftRoom = 0, steps
     // held by its N1 / N2 tags: what has to fit is from the tags to the right end (the drums hang to their left)
     : anchored ? Math.max(wide ? MIN_FIT_DESK : MIN_FIT_SMALL, Math.min(1, (viewW + room) / Math.max(1, natural.w - tl)))
     : solveFit(natural.dw, extra => wide ? Math.max(MIN_FIT_DESK, Math.min(1, (viewW + room) / (Wn + extra)))
-      : Math.max(MIN_FIT_SMALL, Math.min(1, ((availableWidth ?? 0) + 8) / (Wn + extra))));
+      : Math.max(MIN_FIT_SMALL, Math.min(1, ((availableWidth ?? 0) + 8) / (Wn + extra))), phone);
   // A phone: the height scale only goes down while the board lives (the board is made anew for every problem), so the
   // drawn height and the scale can't chase each other (the work area under the operands is scaled from it too)
   // (it starts again when the room changes: the steps window opened or closed, the phone turned)
@@ -131,7 +131,7 @@ export default function FitBoard({ children, availableWidth, leftRoom = 0, steps
     : Math.max(MIN_FIT_HEIGHT, Math.min(1, Math.floor(((availableHeight - 4) / natural.h) * 100) / 100));
   const fit = Math.min(fitW, fitH);
   // The drums' extra room on the left at this scale (board px)
-  const ext = natural ? drumExtra(natural.dw, fit) : 0;
+  const ext = natural ? drumExtra(natural.dw, fit, phone) : 0;
   const Wc = (Wn + ext) * fit;
   // Shrunk on a desktop (Julian): the board comes down as it shrinks, so the first operand's row stays where it is at
   // full size, level with INTEGER / FLOAT, instead of rising with the scaling (made from the top-left corner)
@@ -166,7 +166,7 @@ export default function FitBoard({ children, availableWidth, leftRoom = 0, steps
         className={`w-max ${smooth ? 'transition-[transform,margin-left,margin-top] duration-600 ease-[cubic-bezier(0.22,1,0.36,1)]' : ''}`}
         style={natural ? { transform: `scale(${fit})`, transformOrigin: 'top left', ...toRem({ marginLeft: left - (natural.cl - ext) * fit, marginTop: drop }) } : undefined}
       >
-        <DrumZoom.Provider value={drumScaleFor(fit) / fit}>{children}</DrumZoom.Provider>
+        <DrumZoom.Provider value={drumScaleFor(fit, phone) / fit}>{children}</DrumZoom.Provider>
       </div>
     </div>
   );

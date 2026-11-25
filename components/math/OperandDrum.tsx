@@ -45,7 +45,12 @@ export const usePhoneEdge = (): number => useSyncExternalStore(subscribeSm, () =
 
 // When the board shrinks (a phone, or the steps window made wider), the drums shrink much less than the digits
 // (Julian): not at all while the board is at 75% or more, then slowly, never below 80%
-export const drumScaleFor = (fit: number): number => (fit >= 0.75 ? 1 : Math.max(0.8, 1 - (0.75 - fit) * 0.8));
+export const drumScaleFor = (fit: number, phone = false): number => {
+  const normal = fit >= 0.75 ? 1 : Math.max(0.8, 1 - (0.75 - fit) * 0.8);
+  // On a phone (Julian) they start bigger (125%: short numbers are the usual case) and keep that size as long as they
+  // can (board at 80% or more), then shrink gently down to the size they have elsewhere
+  return phone ? Math.max(normal, fit >= 0.8 ? 1.25 : 1.25 - (0.8 - fit) * 2) : normal;
+};
 // What the board gives its drums: their own scale over the board's (drawn from their right edge, so they grow to the
 // left, away from the N1 / N2 tags). The boards keep room for that (see FitBoard and useAddSubFit)
 export const DrumZoom = createContext(1);
@@ -54,13 +59,13 @@ export const DrumZoom = createContext(1);
 export const DRUM_W = 56;
 export const DRUM_REACH = 8 + 32 + 15 + DRUM_W;
 // The drums' extra width to the left when drawn `drumScaleFor(fit)` while the board is drawn `fit` (board px)
-export const drumExtra = (drumW: number, fit: number): number => drumW * (drumScaleFor(fit) / fit - 1);
+export const drumExtra = (drumW: number, fit: number, phone = false): number => drumW * (drumScaleFor(fit, phone) / fit - 1);
 // The board's scale, found by trying: the room the drums need depends on the scale itself. `fitFor(extra)` is the
 // scale for a board needing `extra` more px on the left
-export const solveFit = (drumW: number, fitFor: (extra: number) => number): number => {
+export const solveFit = (drumW: number, fitFor: (extra: number) => number, phone = false): number => {
   let f = fitFor(0);
   if (!drumW) return f;
-  for (let i = 0; i < 16; i++) f = fitFor(drumExtra(drumW, f));
+  for (let i = 0; i < 16; i++) f = fitFor(drumExtra(drumW, f, phone));
   return f;
 };
 
