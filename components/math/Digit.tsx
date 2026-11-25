@@ -7,6 +7,7 @@ import type { DigitVariant } from './types';
 import { CELL } from './layout';
 import { RollingDigit } from './RollingDigit';
 import { DigitDrum } from './Drum';
+import { usePhone } from './OperandDrum';
 
 const VARIANT: Record<DigitVariant, string> = {
   highlight: 'bg-linear-to-br from-yellow-400 to-orange-500 text-zinc-900 border-yellow-300 scale-110 shadow-[0_0_20px_rgba(250,204,21,0.6)] z-30',
@@ -52,6 +53,17 @@ export function Digit({ digit, variant, isNum1 = true, onIncrement, onDecrement,
   const hide = () => { clearClose(); setLeaving(true); closeTimer.current = window.setTimeout(() => setOpen(false), 750); };
 
   const visible = open && !leaving;
+  // A phone (Julian): a tap on the digit (or its dots) opens the drum and the digit grows to twice its size, over its
+  // neighbours (they don't move), so it is easy to turn; it goes back 3 s after the last touch, or at once on a tap
+  // outside it
+  const phone = usePhone();
+  const idleTimer = useRef(0);
+  const arm = () => { window.clearTimeout(idleTimer.current); idleTimer.current = window.setTimeout(() => hide(), 3000); };
+  useEffect(() => {
+    if (!visible || !phone) return;
+    arm();
+    return () => window.clearTimeout(idleTimer.current);
+  }, [visible, phone]);
   // Touch: a tap anywhere outside the open drum closes it
   useEffect(() => {
     if (!visible || !hoverEditable) return;
@@ -70,13 +82,20 @@ export function Digit({ digit, variant, isNum1 = true, onIncrement, onDecrement,
   const dotHandlers = {
     onClick: () => { if (!visible) show(); },
   };
-  const step = (dir: 1 | -1) => { if (dir === 1) onIncrement?.(); else onDecrement?.(); };
+  const step = (dir: 1 | -1) => { if (phone) arm(); if (dir === 1) onIncrement?.(); else onDecrement?.(); };
 
   if (hoverEditable) {
     const frame = visible ? `${isNum1 ? 'border-cyan-500' : 'border-pink-500'} bg-zinc-900` : VARIANT[variant];
     const fade: CSSProperties = { transitionDuration: '750ms' };
     return (
-      <div ref={rootRef} {...handlers} className={`${CELL} shrink-0 relative rounded-md border-2 overflow-hidden shadow-[0_2px_6px_rgba(0,0,0,0.5)] transition-[border-color,background-color] ease-in-out ${frame}`} style={fade}>
+      <div
+        ref={rootRef}
+        {...handlers}
+        onClick={phone && !visible ? show : undefined}
+        onPointerDown={phone && visible ? arm : undefined}
+        className={`${CELL} shrink-0 relative rounded-md border-2 overflow-hidden shadow-[0_2px_6px_rgba(0,0,0,0.5)] transition-[border-color,background-color,transform] ease-in-out ${frame} ${phone && visible ? 'z-50' : ''}`}
+        style={{ ...fade, ...(phone ? { transform: visible ? 'scale(2)' : 'scale(1)', transitionDuration: visible ? '250ms' : '750ms' } : {}) }}
+      >
         <div className="absolute inset-0 rounded-sm overflow-hidden flex items-center justify-center font-extrabold text-[26px] md:text-[30px] transition-opacity ease-in-out" style={{ opacity: visible ? 0 : 1, ...fade }}>
           <span className="translate-y-1.75"><RollingDigit value={digit} /></span>
           {/* Three small steel dots: click them to change this digit. With a mouse only the dots themselves react (13×3 px,
