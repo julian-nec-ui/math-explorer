@@ -55,7 +55,8 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
           centred */}
       <div className="flex md:hidden items-center justify-center gap-2">
         <span aria-hidden="true" className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap text-zinc-400">Time elapsed</span>
-        <SevenSeg text={formatElapsed(elapsed)} label={`Elapsed time ${formatElapsed(elapsed)}`} />
+        {/* the digits 10% smaller on a phone (Julian) */}
+        <div className="[zoom:0.9]"><SevenSeg text={formatElapsed(elapsed)} label={`Elapsed time ${formatElapsed(elapsed)}`} /></div>
       </div>
       {/* As wide as its widest row (on a phone too, Julian: FLOAT ends in line with the step delay's drum, not at the
           screen's edge) */}
