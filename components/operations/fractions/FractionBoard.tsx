@@ -1,8 +1,8 @@
 "use client";
 
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react';
-import { CarryHop, Digit, OpIcon, OperandDrum, numberValue, type DigitVariant, type FracPart } from '../../math/shared';
-import { Bracket, Crossable, EXPR_GAP, Eq, FR_HOP_END, FR_HOP_MS, FR_LAND_MS, FactorChip, type Frac, FracView, type FractionBoardProps, type Hop, MAX_WHOLE_PIECES, MIN_FIT, type Mark, Mul, Num, Paren, SignMark, SmallEq, Times, WarningIcon, gcd, lcm, primeFactors } from './model';
+import { CarryHop, Digit, OpIcon, OperandDrum, commaAfter, numberValue, type DigitVariant, type FracPart } from '../../math/shared';
+import { Bracket, Crossable, FracComma, EXPR_GAP, Eq, FR_HOP_END, FR_HOP_MS, FR_LAND_MS, FactorChip, type Frac, FracView, type FractionBoardProps, type Hop, MAX_WHOLE_PIECES, MIN_FIT, type Mark, Mul, Num, Paren, SignMark, SmallEq, Times, WarningIcon, gcd, lcm, primeFactors } from './model';
 import { runFractions } from './script';
 export { hasZeroDenominator } from './model';
 
@@ -92,7 +92,9 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
     const row = contentRef.current?.querySelector<HTMLElement>('[data-expr]');
     if (!row || !availableWidth) return;
     const items = [...row.children] as HTMLElement[];
-    const natural = items.reduce((w, c) => w + c.getBoundingClientRect().width / fit, 0) + EXPR_GAP * Math.max(0, items.length - 1);
+    // (+ the content's left margin from md up: it starts that far in, see below)
+    const margin = parseFloat(getComputedStyle(contentRef.current!).marginLeft) || 0;
+    const natural = items.reduce((w, c) => w + c.getBoundingClientRect().width / fit, 0) + EXPR_GAP * Math.max(0, items.length - 1) + margin;
     // 2% to spare, so rounding never pushes the last part onto a new row
     const next = Math.max(MIN_FIT, Math.min(1, (availableWidth - 16) / Math.max(1, natural * 1.02)));
     if (Math.abs(next - fit) > 0.02) setFit(next);
@@ -114,9 +116,9 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
       // While the explanation runs (the digits can't be changed) the input digits are 15% bigger
       // (zoom, not scale: the brackets, the line, the chips and the sign make room for the bigger digits)
       <div ref={reg(key)} className={`flex gap-2.5 ${run ? '[zoom:1.15]' : ''} ${part === 'd' && value === 0 ? 'rounded-md ring-2 ring-red-500 ring-offset-2 ring-offset-zinc-950 shadow-[0_0_14px_rgba(239,68,68,0.75)] transition-shadow' : ''}`}>
-        {fraction[key].digits.map((dg, i) => (
+        {fraction[key].digits.map((dg, i, all) => (
+          <Fragment key={i}>
           <Digit
-            key={i}
             digit={dg}
             variant={variantOf(which === 'n1' ? 'f1' : 'f2', part)}
             isNum1={which === 'n1'}
@@ -125,6 +127,9 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
             onIncrement={() => onCycleFractionDigit(key, i, 1)}
             onDecrement={() => onCycleFractionDigit(key, i, -1)}
           />
+          {/* Thousands separator (Julian): a comma after every third digit from the right */}
+          {commaAfter(i, all.length) && <FracComma />}
+          </Fragment>
         ))}
       </div>
     );
@@ -147,29 +152,33 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
 
   return (
     // The jumping square stays outside the zoomed part (it is placed in screen pixels)
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center md:items-start">
     {/* Zoomed to fit (see `fit`), and at most as wide as the board area, so the rows wrap (the second fraction under
         the first) instead of scrolling */}
-    <div ref={contentRef} className="flex flex-col items-center" style={{ zoom: fit, maxWidth: availableWidth ? Math.max(320, availableWidth - 16) / fit : undefined }}>
-      <div data-expr className="flex flex-wrap items-center justify-center gap-x-5 gap-y-4">
-        {/* The problem: (±a/b) + (±c/d): each fraction with its sign in round brackets, the + between them. When they
-            don't fit side by side, the second goes under the first and the + stays after the first */}
-        <div className="flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-2">
+    <div ref={contentRef} className="flex flex-col items-center md:items-start md:ml-[6.0625rem]" style={{ zoom: fit, maxWidth: availableWidth ? Math.max(320, availableWidth - 16 - (typeof window !== 'undefined' && window.matchMedia('(min-width: 48rem)').matches ? 97 : 0)) / fit : undefined }}>
+      <div data-expr className="flex flex-wrap items-center justify-center md:justify-start gap-x-5 gap-y-4">
+        {/* The problem (Julian): the second fraction under the first, both starting at the same place, each with its
+            sign in round brackets and its digit-count drums on its left (half as far from the bracket as before); the
+            + between them on the right, outside the brackets, centred on the right bracket (of the wider fraction) */}
+        <div className="grid grid-cols-[auto_auto] items-center">
           <div className="flex items-stretch gap-2">
             {/* How many digits its numerator and denominator have (see OperandDrum) */}
-            <div className="relative right-[21px] flex flex-col justify-center gap-3 mr-1"><OperandDrum part="n1" /><OperandDrum part="d1" /></div>
+            <div className="relative right-[0.28125rem] flex flex-col justify-center gap-3 mr-1"><OperandDrum part="n1" /><OperandDrum part="d1" /></div>
             <Bracket side="left" />
             <div className="flex items-center gap-2">{renderSign('n1', num1.sign)}{problemFrac('n1', f1, amp1)}</div>
             <Bracket side="right" />
           </div>
-          <span className="text-cyan-500"><OpIcon op="addition" /></span>
+          <span />
+          <span />
+          <span className="text-cyan-500 -ml-[1.1875rem]"><OpIcon op="addition" /></span>
           <div className="flex items-stretch gap-2">
             {/* How many digits its numerator and denominator have (see OperandDrum) */}
-            <div className="relative right-[21px] flex flex-col justify-center gap-3 mr-1"><OperandDrum part="n2" /><OperandDrum part="d2" /></div>
+            <div className="relative right-[0.28125rem] flex flex-col justify-center gap-3 mr-1"><OperandDrum part="n2" /><OperandDrum part="d2" /></div>
             <Bracket side="left" />
             <div className="flex items-center gap-2">{renderSign('n2', num2.sign)}{problemFrac('n2', f2, amp2)}</div>
             <Bracket side="right" />
           </div>
+          <span />
         </div>
 
         {/* One fraction, one long line under the numerators and their signs */}

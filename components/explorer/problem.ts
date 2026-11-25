@@ -6,7 +6,8 @@ export interface DigitCounts { n1: number; n2: number; }
 
 // Fractions: how many digits each numerator / denominator has (1 to 6, one slider each), and new random ones: never 0
 // (no denominator 0, and no numerator 0 either, which would make an empty example)
-export const FRACTION_MAX_DIGITS = 6;
+// Up to 12 digits, as in the other operations (Julian)
+export const FRACTION_MAX_DIGITS = 12;
 export const FRACTION_LABELS: Record<FracPart, string> = { n1: 'Numerator 1', d1: 'Denominator 1', n2: 'Numerator 2', d2: 'Denominator 2' };
 export const newFraction = (counts: Record<FracPart, number>): FractionParts => {
   let parts: FractionParts;

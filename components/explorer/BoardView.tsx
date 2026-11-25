@@ -7,7 +7,9 @@ import FitBoard from '../math/FitBoard';
 // The frame of the boards that have no size rule of their own (fractions): centred in the width the board is laid out
 // for (`viewW`, nominal px; not the area's live width, which changes every frame while the steps window slides), gliding
 // with `smooth`, and reporting its width (like the other boards: see toggleSteps)
-function FramedBoard({ viewW, smooth, onNaturalWidth, children }: { viewW: number; smooth: boolean; onNaturalWidth: (w: number) => void; children: ReactNode }): ReactElement {
+// `anchored` (md up, the controls column beside the board): not centred but held at the area's left edge, so the
+// fractions and their drums stay put while digits change (Julian; the board places itself from there)
+function FramedBoard({ viewW, smooth, onNaturalWidth, anchored, children }: { viewW: number; smooth: boolean; onNaturalWidth: (w: number) => void; anchored: boolean; children: ReactNode }): ReactElement {
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);
   useEffect(() => {
@@ -24,8 +26,8 @@ function FramedBoard({ viewW, smooth, onNaturalWidth, children }: { viewW: numbe
   return (
     <div
       ref={ref}
-      className={`w-max shrink-0 mb-auto px-2 pb-4 ${w ? '' : 'mx-auto'} ${smooth ? 'transition-[margin-left] duration-600 ease-[cubic-bezier(0.22,1,0.36,1)]' : ''}`}
-      style={w && viewW ? toRem({ marginLeft: Math.max(0, (viewW - w) / 2) }) : undefined}
+      className={`w-max shrink-0 mb-auto px-2 pb-4 ${w || anchored ? '' : 'mx-auto'} ${smooth ? 'transition-[margin-left] duration-600 ease-[cubic-bezier(0.22,1,0.36,1)]' : ''}`}
+      style={anchored ? undefined : w && viewW ? toRem({ marginLeft: Math.max(0, (viewW - w) / 2) }) : undefined}
     >
       {children}
     </div>
@@ -43,6 +45,6 @@ export function BoardView({ activeOp, framed, board, boardViewW, viewHeight, smo
     );
   }
   return framed
-    ? <FramedBoard viewW={boardViewW} smooth={smoothFit} onNaturalWidth={onNaturalWidth}>{board}</FramedBoard>
+    ? <FramedBoard viewW={boardViewW} smooth={smoothFit} onNaturalWidth={onNaturalWidth} anchored={leftRoom > 0}>{board}</FramedBoard>
     : <>{board}</>;
 }

@@ -519,3 +519,17 @@ Totul arată și se comportă exact ca înainte (verificat: HTML-ul paginii iden
   (`gap-[0.9375rem]`) sau toRem. Verifică mereu în Chrome-ul lui (localhost:3000), după reîncărcare: o parte din poziții
   se măsoară doar la încărcare, iar actualizarea automată (HMR) nu le reface.
 
+
+## Fracții: 2 rânduri, 12 cifre, virgule (24 nov 2026)
+- Fracția a doua sub prima (grilă), aceeași aliniere; + în dreapta, între ele, centrat pe paranteza din dreapta a
+  fracției mai late, fără paranteze. Rotițele lipite de paranteză (16.5 px de tablă). De la md în sus FramedBoard nu mai
+  centrează (`anchored`): conținutul pornește la 6.0625rem de marginea zonei, deci totul stă fix când se schimbă cifrele.
+- Numărătorii / numitorii: 1–12 cifre (FRACTION_MAX_DIGITS), cu virgulă la fiecare 3 cifre (FracComma), și la
+  rezultate (Num). ATENȚIE: calculele fracțiilor sunt în Number; peste ~15–16 cifre (LCM, produse) devin inexacte —
+  de trecut pe BigInt dacă Julian folosește numere mari.
+- Pagina de modificări: build.js (Tailwind) extrage candidații și cu virgule, altfel clasele arbitrare cu virgule
+  (COMMA_STYLE etc.) lipseau din CSS-ul paginii.
+
+## Telefon: fereastra de explicații lipită de marginea de jos (24 nov 2026)
+- Zona din mijloc are flex-1 și panoul nu are padding jos pe `phone` (variantă nouă în globals.css = tot ce nu e
+  `desk`): fereastra stă pe marginea de jos a ecranului, deschisă sau strânsă, și se deschide doar în sus.

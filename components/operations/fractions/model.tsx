@@ -1,7 +1,7 @@
 "use client";
 
-import { type ReactElement, type ReactNode } from 'react';
-import { Digit, numberValue, type BoardProps, type DigitVariant, type FracPart, type FractionParts } from '../../math/shared';
+import { Fragment, type ReactElement, type ReactNode } from 'react';
+import { COMMA_STYLE, Digit, commaAfter, numberValue, type BoardProps, type DigitVariant, type FracPart, type FractionParts } from '../../math/shared';
 
 // Fractions: two fractions, each numerator and denominator its own number of 1 to 6 digits (one slider each in the
 // page; every digit turns with the steel drum). The ± buttons (N1's and N2's signs) give each fraction its sign; each
@@ -85,10 +85,23 @@ export const lcm = (a: number, b: number): number => (a / gcd(a, b)) * b;
 export const showFrac = (f: Frac): string => `${f.s < 0 && f.n !== 0 ? '−' : ''}${f.n}/${f.d}`;
 
 // A whole number as a row of digit cells
+// Thousands separator between the digits of a numerator / denominator (Julian): a comma at the digits' bottom, taking
+// back part of the gap around it
+export const FracComma = (): ReactElement => (
+  <div className="w-2.5 -mx-1 shrink-0 flex justify-center leading-7 self-end" aria-hidden="true">
+    <span className={COMMA_STYLE}>,</span>
+  </div>
+);
+
 export function Num({ value, variant, refFn, hidden = false }: { value: number; variant: DigitVariant; refFn?: (el: HTMLDivElement | null) => void; hidden?: boolean }): ReactElement {
   return (
     <div ref={refFn} className={`flex gap-1 transition-[opacity,filter] duration-300 ease-out ${hidden ? 'opacity-0 blur-sm' : 'opacity-100 blur-none'}`}>
-      {String(Math.abs(value)).split('').map((c, i) => <Digit key={i} digit={Number(c)} variant={variant} operand compact />)}
+      {String(Math.abs(value)).split('').map((c, i, all) => (
+        <Fragment key={i}>
+          <Digit digit={Number(c)} variant={variant} operand compact />
+          {commaAfter(i, all.length) && <FracComma />}
+        </Fragment>
+      ))}
     </div>
   );
 }

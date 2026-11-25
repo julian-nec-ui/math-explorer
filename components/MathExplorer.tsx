@@ -136,10 +136,11 @@ export default function MathExplorer(): ReactElement {
       <main className="flex-1 min-w-0 desk:py-[1.5vh] flex flex-col items-center justify-center">
         <div className="w-full desk:w-[99vw]">
           {/* Panel, background #15161e with a discreet gradient of close shades.
-              Phone (also held sideways): fills the screen edge to edge and the page scrolls (header, board, then the steps).
+              Phone (also held sideways): fills the screen edge to edge and the page scrolls (header, board, then the steps);
+              no padding at the bottom, so the steps window sits on the screen's bottom edge, open or closed (Julian).
               Tablet and desktop (`desk`: at least 48rem wide and 37.5rem tall, see globals.css): 99% of the screen width
               and 97% of its height; the board scrolls inside the middle area */}
-          <div className="min-h-dvh desk:min-h-0 desk:h-[97vh] flex flex-col gap-3 2xl:gap-0 bg-linear-to-br from-[#191a23] via-[#15161e] to-[#111219] border-zinc-800 desk:border desk:rounded-3xl p-3 sm:p-5 md:p-6 lg:p-8 md:pr-2.5 lg:pr-2.5 backdrop-blur-xl shadow-2xl">
+          <div className="min-h-dvh desk:min-h-0 desk:h-[97vh] flex flex-col gap-3 2xl:gap-0 bg-linear-to-br from-[#191a23] via-[#15161e] to-[#111219] border-zinc-800 desk:border desk:rounded-3xl p-3 sm:p-5 md:p-6 lg:p-8 md:pr-2.5 lg:pr-2.5 phone:pb-0! backdrop-blur-xl shadow-2xl">
             {/* 3D title (same for every operation): metallic light-to-shade gradient on the letters, an extruded
                 edge built from stacked 1px shadows that get darker downwards, and a soft cast shadow. Raised 5px */}
             {/* Header. The operation tabs always keep the same look (one row, full names) at the top right.
@@ -160,7 +161,7 @@ export default function MathExplorer(): ReactElement {
             </div>
             {/* Middle area. Desk (tall enough) and lg up: the board on the left keeps its full height and the steps window
                 sits on the right. Otherwise: the board on top and the steps window under it, full width */}
-            <div className="flex flex-col gap-3 desk:flex-1 desk:min-h-0 desk:lg:flex-row desk:lg:gap-0.5">
+            <div className="flex flex-col gap-3 flex-1 desk:min-h-0 desk:lg:flex-row desk:lg:gap-0.5">
             <div className="relative flex flex-col md:flex-row flex-1 min-w-0 min-h-0" style={colBottom ? { minHeight: colBottom } : undefined}>
               <ControlsColumn
                 colRef={colRef}
