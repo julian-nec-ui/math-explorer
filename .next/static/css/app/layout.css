@@ -969,6 +969,9 @@
   .rounded-2xl {
     border-radius: var(--radius-2xl);
   }
+  .rounded-3xl {
+    border-radius: var(--radius-3xl);
+  }
   .rounded-\[50\%\] {
     border-radius: 50%;
   }
@@ -2676,6 +2679,9 @@
     }
   }
   @media not ((width >= 48rem) and (height >= 37.5rem)) {
+    .phone\:overflow-clip {
+      overflow: clip;
+    }
     .phone\:pb-0\! {
       padding-bottom: 0px !important;
     }

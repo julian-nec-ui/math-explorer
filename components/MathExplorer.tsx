@@ -138,9 +138,11 @@ export default function MathExplorer(): ReactElement {
           {/* Panel, background #15161e with a discreet gradient of close shades.
               Phone (also held sideways): fills the screen edge to edge and the page scrolls (header, board, then the steps);
               no padding at the bottom, so the steps window sits on the screen's bottom edge, open or closed (Julian).
+              The panel's rounded border shows on a phone too, its top at the screen's top and its bottom at the screen's
+              bottom (min-h-dvh, border included): the page only scrolls when the content is taller (Julian).
               Tablet and desktop (`desk`: at least 48rem wide and 37.5rem tall, see globals.css): 99% of the screen width
               and 97% of its height; the board scrolls inside the middle area */}
-          <div className="min-h-dvh desk:min-h-0 desk:h-[97vh] flex flex-col gap-3 2xl:gap-0 bg-linear-to-br from-[#191a23] via-[#15161e] to-[#111219] border-zinc-800 desk:border desk:rounded-3xl p-3 sm:p-5 md:p-6 lg:p-8 md:pr-2.5 lg:pr-2.5 phone:pb-0! backdrop-blur-xl shadow-2xl">
+          <div className="min-h-dvh desk:min-h-0 desk:h-[97vh] flex flex-col gap-3 2xl:gap-0 bg-linear-to-br from-[#191a23] via-[#15161e] to-[#111219] border-zinc-800 border rounded-3xl phone:overflow-clip p-3 sm:p-5 md:p-6 lg:p-8 md:pr-2.5 lg:pr-2.5 phone:pb-0! backdrop-blur-xl shadow-2xl">
             {/* 3D title (same for every operation): metallic light-to-shade gradient on the letters, an extruded
                 edge built from stacked 1px shadows that get darker downwards, and a soft cast shadow. Raised 5px */}
             {/* Header. The operation tabs always keep the same look (one row, full names) at the top right.

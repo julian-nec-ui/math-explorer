@@ -101,7 +101,7 @@ export function StepsWindow({ sw, steps, status, isAnimating, ready, label }: { 
         title={stepsUi.open ? 'Close the explanation window' : 'Open the explanation window'}
         // Closed: the arrow 8px from the green border on the right (which is 3px wide) beside the board, 13px from the
         // edge under it (both 5px further in than at first, Julian); open: at the top left (beside) / top right (under)
-        className={`absolute z-30 w-5 h-7 flex items-center ${stepsSide && !stepsUi.open ? 'justify-end' : 'justify-center'} rounded-md text-[#55b58e] hover:text-[#7fd6b0] hover:bg-white/5 cursor-pointer ${stepsSide ? (stepsUi.open ? 'top-2 left-1' : 'top-2 right-[13px]') : (stepsUi.open ? 'top-1 right-2' : 'top-1 right-[15px]')}`}
+        className={`absolute z-30 w-5 h-7 flex items-center ${stepsSide && !stepsUi.open ? 'justify-end' : 'justify-center'} rounded-md text-[#55b58e] hover:text-[#7fd6b0] hover:bg-white/5 cursor-pointer ${stepsSide ? (stepsUi.open ? 'top-2 left-1' : 'top-2 right-[13px]') : (stepsUi.open ? 'top-1 right-2' : 'top-1/2 -translate-y-1/2 right-[15px]')}`}
       >
         <StepsChevron dir={stepsSide ? (stepsUi.open ? 'right' : 'left') : (stepsUi.open ? 'down' : 'up')} />
       </button>
