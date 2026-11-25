@@ -5,3 +5,7 @@ node_modules/
 .mxbase/
 .mx-src.tgz
 .refactor-backup/
+
+# Next.js build / dev-server output (made again on every run)
+.next/
+out/
