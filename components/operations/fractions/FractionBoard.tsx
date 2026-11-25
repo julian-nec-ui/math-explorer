@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactElement } from 'react';
 import { CarryHop, Digit, OpIcon, OperandDrum, commaAfter, drumScaleFor, numberValue, type DigitVariant, type FracPart } from '../../math/shared';
-import { Bracket, Crossable, FracComma, EXPR_GAP, Eq, FR_HOP_END, FR_HOP_MS, FR_LAND_MS, FactorChip, type Frac, FracView, type FractionBoardProps, type Hop, MAX_WHOLE_PIECES, MIN_FIT, type Mark, Mul, Num, Paren, SignMark, SmallEq, Times, WarningIcon, gcd, lcm, primeFactors } from './model';
+import { Bracket, Crossable, FracComma, EXPR_GAP, Eq, FR_HOP_END, FR_HOP_MS, FR_LAND_MS, FactorChip, type Frac, FracView, type FractionBoardProps, type Hop, MAX_WHOLE_PIECES, type Mark, Mul, Num, Paren, SignMark, SmallEq, Times, WarningIcon, gcd, lcm, primeFactors } from './model';
 import { runFractions } from './script';
 export { hasZeroDenominator } from './model';
 
@@ -93,7 +93,7 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
   useEffect(() => runFractions({ run, ready, refs, setHop, valid, onStatus, onDone, f2, f1, setHl, D, k1, k2, setFact, fRows, lcmPicks, setMultiples, setAmp1, setAmp2, setLine2, a1, a2, setLine3, N, setExtra, g, rn, rd, sN, whole, setMix, rem }), [run]);
 
   // Fit: when the row of the calculations is wider than the board area, everything shrinks evenly (CSS zoom: digits,
-  // signs, lines, chips, brackets) until it fits, but never below MIN_FIT (75%); from there the rows wrap. Measured
+  // signs, lines, chips, brackets) until it fits, down to 40%. Measured
   // after every render, at the natural size (the measured widths divided by the current zoom)
   const contentRef = useRef<HTMLDivElement>(null);
   // (the board is made anew for every new problem: it starts at the last scale, so it doesn't jump)
@@ -137,7 +137,9 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
     const margin = parseFloat(getComputedStyle(el).marginLeft) * fit || 0;
     // the room on screen: up to 3px before the steps window (the board area's right edge); else as before
     const room = mdUp && area ? area.right - 3 - start - margin : (availableWidth - 16);
-    const next = Math.max(MIN_FIT, Math.min(1, (room - (mdUp ? dW : 0)) / Math.max(1, rest * 1.01)));
+    // (down to 40%, not MIN_FIT: on a phone 12 digits must still fit, drums included, or the drums went off the screen —
+    // Julian; the drums themselves shrink much less, see drumZoom)
+    const next = Math.max(0.4, Math.min(1, (room - dW) / Math.max(1, rest * 1.01)));
     setFit(next);
   });
   // The drums' own zoom: back to their normal size (as in the other operations, they shrink only a little, late)
