@@ -17,6 +17,8 @@ import { OP_BAR, OP_MARK } from './geometry';
 export default function AddSubBoard({ op, num1, num2, run, onStatus, onDone, renderSign, onCycleDigit, hoverEdit = false, availableWidth, availableHeight, leftRoom = 0, stepsClosed = false, pageMidX, smoothFit = false, onNaturalWidth }: AddSubBoardProps): ReactElement {
   // The digit-count drums sit left of the N1 / N2 tags: the board keeps room for them too (see OperandDrum)
   const hasDrums = !!useContext(DigitDrums);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const { rootRef, natural, fit, shift, fitRef, drop } = useAddSubFit({ num1, num2, availableWidth, availableHeight, leftRoom, stepsClosed, pageMidX, onNaturalWidth });
   const [result, setResult] = useState<Record<number, ResultDigit>>({});
   const [resultSign, setResultSign] = useState<1 | -1 | null>(null);
@@ -433,7 +435,8 @@ export default function AddSubBoard({ op, num1, num2, run, onStatus, onDone, ren
       </div>
     </div>
     </div>
-    {typeof document !== 'undefined' && createPortal(<div data-mx-overlays>{overlays}</div>, document.body)}
+    {/* (after the first render only: the server has no page body, so the first render must match its HTML) */}
+    {mounted && createPortal(<div data-mx-overlays>{overlays}</div>, document.body)}
     </DrumZoom.Provider>
   );
 }
