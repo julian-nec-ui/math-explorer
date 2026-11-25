@@ -139,7 +139,7 @@ export default function MathExplorer(): ReactElement {
               bottom (min-h-dvh, border included): the page only scrolls when the content is taller (Julian).
               Tablet and desktop (`desk`: at least 48rem wide and 37.5rem tall, see globals.css): 99% of the screen width
               and 97% of its height; the board scrolls inside the middle area */}
-          <div className="min-h-dvh desk:min-h-0 desk:h-[97vh] flex flex-col gap-3 2xl:gap-0 bg-linear-to-br from-[#191a23] via-[#15161e] to-[#111219] border-zinc-800 border rounded-3xl phone:overflow-clip p-3 sm:p-5 md:p-6 lg:p-8 md:pr-2.5 lg:pr-2.5 phone:pb-0! backdrop-blur-xl shadow-2xl">
+          <div className="min-h-dvh desk:min-h-0 desk:h-[97vh] flex flex-col gap-3 2xl:gap-0 bg-linear-to-br from-[#191a23] via-[#15161e] to-[#111219] border-zinc-800 border rounded-3xl phone:overflow-clip p-3 sm:p-5 md:p-6 lg:p-8 md:pr-2.5 lg:pr-2.5 land:pt-3! phone:pb-0! backdrop-blur-xl shadow-2xl">
             {/* 3D title (same for every operation): metallic light-to-shade gradient on the letters, an extruded
                 edge built from stacked 1px shadows that get darker downwards, and a soft cast shadow. Raised 5px */}
             {/* Header. The operation tabs always keep the same look (one row, full names) at the top right.
@@ -179,10 +179,10 @@ export default function MathExplorer(): ReactElement {
                 onNext={x.nextStep}
                 seeking={x.seeking}
                 band={bandInline ? null : (
-                  <div className="max-md:-mt-[0.5px] md:mt-3 w-0 min-w-full bg-zinc-800/50 px-3 py-2.5 md:py-2 rounded-2xl border border-zinc-700 max-md:bg-transparent max-md:border-0 max-md:p-0 max-md:rounded-none">
+                  <div className="phone:-mt-[0.5px] desk:mt-3 w-0 min-w-full bg-zinc-800/50 px-3 py-2.5 desk:py-2 rounded-2xl border border-zinc-700 phone:bg-transparent phone:border-0 phone:p-0 phone:rounded-none">
                     {/* (Julian) on a phone no box: three separate buttons, 7.5px under Pause / Prev / Next (half the 15px it was), Explain to
                         Me under Pause's left edge, Stop ending under the Fractions tab, equal gaps between them; the board under it follows */}
-                    <div className="grid grid-cols-3 md:grid-cols-2 gap-2 max-md:flex max-md:justify-between">
+                    <div className="grid grid-cols-3 desk:grid-cols-2 gap-2 phone:flex phone:justify-between">
                       {actions(true)}
                     </div>
                   </div>
@@ -192,7 +192,7 @@ export default function MathExplorer(): ReactElement {
                 method under them), so wide numbers never run into them.
                 Numbers wider than the screen scroll sideways */}
             {/* steps-scroll: the same 8px #456175 scrollbars as the steps window */}
-            <div ref={viewRef} className="steps-scroll relative flex-1 min-w-0 min-h-0 overflow-auto flex md:pl-60 md:-mt-[0.5625rem]">
+            <div ref={viewRef} className="steps-scroll relative flex-1 min-w-0 min-h-0 overflow-auto flex md:pl-60 md:-mt-[0.5625rem] land:pl-[23.5rem]!">
               {/* The active operation's board (see operations/registry). Multiplication and division sit in a padded frame and
                   start near the top of the panel, just below the title, at the same height for every operation */}
               <DigitDrums.Provider value={drums}>

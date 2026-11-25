@@ -3,6 +3,8 @@
 /* `desk`: a screen wide AND tall enough for the fixed-height panel (tablets, laptops, desktops).
    Phones, and phones held sideways, get the scrolling layout instead. */
 @custom-variant desk (@media (width >= 48rem) and (height >= 37.5rem));
+/* `land`: a phone held sideways (wide enough for md, too short for desk) */
+@custom-variant land (@media (width >= 48rem) and (height < 37.5rem));
 /* `phone`: everything that isn't `desk` (phones, upright or sideways) */
 @custom-variant phone (@media not ((width >= 48rem) and (height >= 37.5rem)));
 

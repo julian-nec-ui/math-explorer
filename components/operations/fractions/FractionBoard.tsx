@@ -147,7 +147,9 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
     // A phone: also as tall as the room above the open steps window (Julian: nothing runs under it), down to 40%
     // (less the frame's 16px under it, pb-4 in FramedBoard)
     const hNat = el.getBoundingClientRect().height / fit;
-    setFit(!mdUp && availableHeight && hNat ? Math.min(next, Math.max(0.4, (availableHeight - 20) / hNat)) : next);
+    // (and a phone held sideways, Julian: short, so the fractions must fit its height too)
+    const sideways = mdUp && window.matchMedia('(max-height: 37.49rem)').matches;
+    setFit((!mdUp || sideways) && availableHeight && hNat ? Math.min(next, Math.max(0.4, (availableHeight - 20) / hNat)) : next);
   });
   // The drums' own zoom: back to their normal size (as in the other operations, they shrink only a little, late)
   const drumZoom = drumScaleFor(fit, !mdUp) / fit;

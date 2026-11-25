@@ -35,7 +35,7 @@ export function Title({ slotRef, titleRef, label, color }: { slotRef: RefObject<
     <h1
       ref={titleRef}
       // 10px from the panel's left edge (Julian; see EDGE_5)
-      className={`w-max -mt-1.25 ${EDGE_5} text-[32px] sm:text-[39px] md:text-[43px] 2xl:text-[50px] font-black tracking-[calc(-0.05em+3px)]`}
+      className={`w-max -mt-1.25 ${EDGE_5} text-[32px] sm:text-[39px] md:text-[43px] 2xl:text-[50px] land:text-[34px]! font-black tracking-[calc(-0.05em+3px)]`}
       style={{
         ...TITLE_3D,
         // Light and shade from top to bottom (keeps the 3D look) over the operation's colours from left to right

@@ -32,6 +32,16 @@ const subscribeMd = (cb: () => void) => {
   q.addEventListener('change', cb);
   return () => q.removeEventListener('change', cb);
 };
+// A phone held sideways (Julian): wide enough for md, too short for desk. The boards may grow there (see LAND_FIT)
+const LAND_QUERY = '(min-width: 48rem) and (max-height: 37.49rem)';
+const subscribeLand = (cb: () => void) => {
+  const q = window.matchMedia(LAND_QUERY);
+  q.addEventListener('change', cb);
+  return () => q.removeEventListener('change', cb);
+};
+export const useLand = (): boolean => useSyncExternalStore(subscribeLand, () => window.matchMedia(LAND_QUERY).matches, () => false);
+// How much bigger than normal the boards may be drawn on a phone held sideways (room permitting)
+export const LAND_FIT = 1.4;
 export const usePhone = (): boolean => useSyncExternalStore(subscribeMd, () => !window.matchMedia(MD_QUERY).matches, () => false);
 // How far the controls column (and so the Explain to Me box) sits left of the board area on a phone: EDGE_5 — 2px,
 // 10px from sm (40rem) up. Nominal px
@@ -64,7 +74,8 @@ export const usePhoneEdge = (): number => useSyncExternalStore(subscribeSm, () =
 // When the board shrinks (a phone, or the steps window made wider), the drums shrink much less than the digits
 // (Julian): not at all while the board is at 75% or more, then slowly, never below 80%
 export const drumScaleFor = (fit: number, phone = false): number => {
-  const normal = fit >= 0.75 ? 1 : Math.max(0.8, 1 - (0.75 - fit) * 0.8);
+  // (a board drawn bigger than normal, on a phone held sideways: the drums grow with it)
+  const normal = fit > 1 ? fit : fit >= 0.75 ? 1 : Math.max(0.8, 1 - (0.75 - fit) * 0.8);
   // On a phone (Julian) they start bigger (125%: short numbers are the usual case) and keep that size as long as they
   // can (board at 80% or more), then shrink gently down to the size they have elsewhere
   return phone ? Math.max(normal, fit >= 0.8 ? 1.25 : 1.25 - (0.8 - fit) * 2) : normal;

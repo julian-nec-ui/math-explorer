@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type ReactElement, type ReactNode, type RefObject } from 'react';
+import { useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactElement, type ReactNode, type RefObject } from 'react';
 import { CountDrum, REM_PX, STEP_DELAYS_MS, toRem, type NumberType } from '../math/shared';
 import SevenSeg, { formatElapsed } from '../math/SevenSeg';
 import type { DivisionMethod, DivisionResult } from '../operations/basic/DivisionBoard';
@@ -14,6 +14,8 @@ import type { Problem } from './useProblem';
 // that edge (FLOAT, Redo, Pause, and in division CLASSIC, EQUAL DECIMALS and DECIMALS) reach out the same 6px, so they
 // all end in line with it
 const EDGE_3 = 'md:-mr-[6px]';
+const LAND_QUERY = '(min-width: 48rem) and (max-height: 37.49rem)';
+const subscribeLand = (cb: () => void) => { const q = window.matchMedia(LAND_QUERY); q.addEventListener('change', cb); return () => q.removeEventListener('change', cb); };
 
 export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAnimating, paused, stepDelay, setStepDelay, onTogglePause, canPrev, canNext, onPrev, onNext, seeking, band }: {
   colRef: RefObject<HTMLDivElement | null>; cell: number; timerGap: number; elapsed: number; problem: Problem; isAnimating: boolean;
@@ -57,7 +59,8 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
     const measure = () => {
       const g = sdRef.current, drum = g?.querySelector('.rounded-md'), nav = navRef.current;
       const timer = [...document.querySelectorAll('[role="timer"]')].find(t => t.getBoundingClientRect().width > 0);
-      if (!g || !drum || !nav || !timer || getComputedStyle(g).position !== 'absolute') {
+      // (not on a phone held sideways: there the timer sits at the column's left, the group just after FLOAT)
+      if (!g || !drum || !nav || !timer || getComputedStyle(g).position !== 'absolute' || window.matchMedia('(min-width: 48rem)').matches) {
         setSdShift(prev => (prev === 0 ? prev : 0)); setNavShift(prev => (prev === 0 ? prev : 0)); return;
       }
       const right = timer.getBoundingClientRect().right;
@@ -71,15 +74,17 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
     return () => window.removeEventListener('resize', measure);
   });
   // (fractions: where it always was, 7px lower like the others — Julian)
-  const colTop = followLine && lineTop !== null ? lineTop : defaultTop + 7;
+  // (a phone held sideways, Julian: at the top, beside the board, all of it on the screen)
+  const land = useSyncExternalStore(subscribeLand, () => window.matchMedia(LAND_QUERY).matches, () => false);
+  const colTop = land ? 4 : followLine && lineTop !== null ? lineTop : defaultTop + 7;
   const { activeOp, numberTypes, divisionMethod, effectiveDivisionResult, effectiveDecimals, changeDecimals, chooseType, chooseDivisionMethod, chooseDivisionResult } = problem;
   return (
-    <div ref={colRef} className={`flex flex-col gap-2 w-full md:w-max md:max-w-60 md:absolute md:left-0 ${EDGE_5} md:z-10`} style={toRem({ top: colTop })}>
+    <div ref={colRef} className={`flex flex-col gap-2 w-full md:w-max md:max-w-60 md:absolute md:left-0 land:w-[22rem]! land:max-w-none! ${EDGE_5} md:z-10`} style={toRem({ top: colTop })}>
       {/* INTEGER | FLOAT (Redo is gone: Explain to Me starts from the beginning anyway, Julian), then in division
           CLASSIC and EQUAL DECIMALS, each on its own row: everything as wide as the drums' box (Julian) */}
       {/* On a phone (under md) the column is a normal row above the board: the elapsed time on its own line, at the top,
           centred */}
-      <div className="flex md:hidden items-center justify-center gap-2">
+      <div className="flex md:hidden land:flex! land:justify-start items-center justify-center gap-2">
         <span aria-hidden="true" className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap text-zinc-400">Time elapsed</span>
         {/* the digits 10% smaller on a phone (Julian) */}
         <div className="[zoom:0.9]"><SevenSeg text={formatElapsed(elapsed)} label={`Elapsed time ${formatElapsed(elapsed)}`} /></div>
@@ -87,14 +92,14 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
       {/* As wide as its widest row (on a phone too, Julian: FLOAT ends in line with the step delay's drum, not at the
           screen's edge) */}
       {/* (Julian) on a phone 4px lower: 5px between the elapsed time's digits and the step delay's drum, as between the drum and Pause / Prev / Next */}
-      <div className="relative grid w-max grid-cols-[auto_1fr] gap-2 max-md:mt-1">
+      <div className="relative grid w-max grid-cols-[auto_1fr] gap-2 phone:mt-1">
       {/* Elapsed time (Julian), tablet / desktop: first, where INTEGER / FLOAT were (its top is what the column lines up
           with the line under the operands, data-colanchor), everything else under it. TIME ELAPSED over the digits, both
           centred on the buttons; placed absolutely in a row as tall as they are, so the timer (a little wider than the
           buttons) never widens the column. On a phone the timer has its own row at the top (above) */}
       {/* (Julian) Its digits start at the same left edge as the title's first letter, INTEGER, STEP DELAY and Pause, and
           INTEGER / FLOAT are 10px further down than before (mb: 4px + 10px) */}
-      <div data-colanchor className={`hidden md:block col-span-2 ${EDGE_3} relative h-[2.6875rem] mb-[14px]`}>
+      <div data-colanchor className={`hidden md:block land:hidden! col-span-2 ${EDGE_3} relative h-[2.6875rem] mb-[14px]`}>
         <div className="absolute left-0 top-0 flex flex-col items-start gap-1.5">
           <span aria-hidden="true" className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap text-zinc-400">Time elapsed</span>
           {/* (fractions: the column stands beside the fractions' drums, so the digits are 15% smaller there, to end before
@@ -125,9 +130,9 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
           next ones take the new delay */}
       {/* (Julian) On a phone it sits on INTEGER / FLOAT's row, 1rem after FLOAT, centred on it (out of the grid, so the
           column stays as wide as INTEGER / FLOAT); Pause comes under it, 4px below the drum */}
-      <div className="col-span-2 mt-1 flex items-center justify-start gap-[0.9375rem] md:justify-between md:gap-0 max-md:absolute max-md:mt-0 max-md:top-0 max-md:left-[calc(100%+1rem)] max-md:h-[1.625rem] max-md:whitespace-nowrap" style={sdShift ? { translate: `${sdShift}px 0` } : undefined} ref={sdRef} role="group" aria-label="Step delay">
+      <div className="col-span-2 mt-1 flex items-center justify-start gap-[0.9375rem] desk:justify-between desk:gap-0 phone:absolute phone:mt-0 phone:top-0 phone:left-[calc(100%+1rem)] phone:h-[1.625rem] phone:whitespace-nowrap" style={sdShift ? { translate: `${sdShift}px 0` } : undefined} ref={sdRef} role="group" aria-label="Step delay">
         <span className="text-[8.8px] font-bold uppercase whitespace-nowrap text-cyan-500">Step delay</span>
-        <div className="relative md:left-[6px]">
+        <div className="relative desk:left-[6px]">
           <CountDrum
             value={stepDelay}
             min={0}
@@ -145,7 +150,7 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
           gap minus 4px), to win room below */}
       {/* (Julian) On a phone Pause, Prev and Next share one row (from md up Prev / Next stay under Pause, 12px lower). On a
           phone the row doesn't widen the column (w-0, the buttons go on past it), so INTEGER / FLOAT keep their width */}
-      <div className={`col-span-2 ${EDGE_3} mt-1 flex gap-2 max-md:w-0 md:flex-col md:gap-3`}>
+      <div className={`col-span-2 ${EDGE_3} mt-1 flex gap-2 phone:w-0 desk:flex-col desk:gap-3`}>
       {/* Pause / Resume (Julian): freezes the explanation exactly where it is, and goes on from there. Amber
           (Pause) / green (Resume), darker, a metallic gradient from left to right, slightly 3D, with a shadow; pressed, it sinks in and springs
           back. Only while an explanation runs */}
@@ -155,7 +160,7 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
         disabled={!isAnimating || seeking}
         aria-pressed={paused}
         title={paused ? 'Go on from here' : 'Stop for a moment, exactly here'}
-        className={`shrink-0 max-md:min-w-[6.75rem] flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-black uppercase tracking-[1.5px] text-white text-shadow-[0_1px_1px_rgba(0,0,0,0.45)] cursor-pointer transition-[transform,box-shadow,filter] duration-150 ease-out shadow-[inset_0_1px_0_rgba(255,255,255,0.45),inset_0_-2px_0_rgba(0,0,0,0.25),0_3px_0_rgba(0,0,0,0.45),0_6px_12px_rgba(0,0,0,0.35)] hover:brightness-110 active:translate-y-0.5 active:scale-[0.97] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-1px_0_rgba(0,0,0,0.25),0_1px_0_rgba(0,0,0,0.45),0_2px_5px_rgba(0,0,0,0.35)] disabled:opacity-40 disabled:cursor-default disabled:hover:brightness-100 disabled:active:translate-y-0 disabled:active:scale-100 ${paused ? 'border-[#145c2a] bg-linear-[90deg,#1d7a3c_0%,#2a9a4e_35%,#4fbf6f_55%,#23864a_80%,#165f30_100%]' : 'border-[#7a5200] bg-linear-[90deg,#b07a00_0%,#d69a0a_35%,#f0bd3a_55%,#c88a00_80%,#946400_100%]'}`}
+        className={`shrink-0 phone:min-w-[6.75rem] flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-black uppercase tracking-[1.5px] text-white text-shadow-[0_1px_1px_rgba(0,0,0,0.45)] cursor-pointer transition-[transform,box-shadow,filter] duration-150 ease-out shadow-[inset_0_1px_0_rgba(255,255,255,0.45),inset_0_-2px_0_rgba(0,0,0,0.25),0_3px_0_rgba(0,0,0,0.45),0_6px_12px_rgba(0,0,0,0.35)] hover:brightness-110 active:translate-y-0.5 active:scale-[0.97] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-1px_0_rgba(0,0,0,0.25),0_1px_0_rgba(0,0,0,0.45),0_2px_5px_rgba(0,0,0,0.35)] disabled:opacity-40 disabled:cursor-default disabled:hover:brightness-100 disabled:active:translate-y-0 disabled:active:scale-100 ${paused ? 'border-[#145c2a] bg-linear-[90deg,#1d7a3c_0%,#2a9a4e_35%,#4fbf6f_55%,#23864a_80%,#165f30_100%]' : 'border-[#7a5200] bg-linear-[90deg,#b07a00_0%,#d69a0a_35%,#f0bd3a_55%,#c88a00_80%,#946400_100%]'}`}
       >
         {paused ? (
           <svg viewBox="0 0 12 12" className="w-3 h-3" aria-hidden="true"><path d="M3 1.5 10.5 6 3 10.5z" fill="currentColor" /></svg>
@@ -190,7 +195,8 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
       </div>
       {/* Division only: how the decimal points are moved before dividing (the grid's second row) */}
       {activeOp === 'division' ? (
-        <div className="contents" role="group" aria-label="Decimal method">
+        <div className="contents land:grid! land:grid-cols-[10.25rem_10.25rem] land:col-span-2 land:w-0 land:gap-2" role="group" aria-label="Decimal method">
+          {/* (Julian) on a phone held sideways two by two under Pause, as wide as the column (out of the grid's columns, so INTEGER / FLOAT keep their width) */}
           {([
             ['classic', 'CLASSIC', 'Move the decimal point by the divisor’s decimal places, so the divisor becomes a whole number'],
             ['equalize', 'EQUAL DECIMALS', 'Give both numbers the same number of decimal places, so both become whole numbers'],
@@ -204,7 +210,7 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
                 title={hint}
                 aria-pressed={active}
                 onClick={() => chooseDivisionMethod(m)}
-                className={`col-span-2 ${EDGE_3} whitespace-nowrap px-2 py-1 rounded-lg text-xs font-bold border cursor-pointer transition-all hover:-translate-y-px hover:shadow-[0_0_10px_rgba(6,182,212,0.35)] disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none ${active ? 'bg-cyan-500/10 border-cyan-500 text-cyan-500 hover:bg-cyan-500/20' : 'border-zinc-700 text-zinc-500 hover:border-cyan-700 hover:text-cyan-300'}`}
+                className={`col-span-2 land:col-span-1 ${EDGE_3} land:mr-0! whitespace-nowrap px-2 py-1 rounded-lg text-xs font-bold border cursor-pointer transition-all hover:-translate-y-px hover:shadow-[0_0_10px_rgba(6,182,212,0.35)] disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none ${active ? 'bg-cyan-500/10 border-cyan-500 text-cyan-500 hover:bg-cyan-500/20' : 'border-zinc-700 text-zinc-500 hover:border-cyan-700 hover:text-cyan-300'}`}
               >
                 {label}
               </button>

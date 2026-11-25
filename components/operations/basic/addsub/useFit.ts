@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { REM_PX, drumExtra, solveFit, useCellSize, usePhone, usePhoneEdge, type NumberData } from '../../../math/shared';
+import { LAND_FIT, REM_PX, drumExtra, solveFit, useCellSize, useLand, usePhone, usePhoneEdge, type NumberData } from '../../../math/shared';
 import { ADD_MIN_FIT_DESK, ADD_SHIFT_MAX, ADD_EDGE_GAP, ADD_GROW_LEFT_FROM, ADD_MIN_FIT_SMALL, WIDE_QUERY, subscribeWide, G, COMMA_SLOT } from './model';
 
 // Addition / subtraction's size and place on the board area (Julian's rules): the board's natural size, measured; how
@@ -51,6 +51,9 @@ export function useAddSubFit({ num1, num2, availableWidth, availableHeight, left
   useLayoutEffect(() => { measureRef.current(); });
   const wide = useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE_QUERY).matches, () => true);
   const phone = usePhone();
+  // (a phone held sideways: the board may be drawn bigger than normal, up to LAND_FIT)
+  const land = useLand();
+  const cap = land ? LAND_FIT : 1;
   const edge = usePhoneEdge();
   // Desktop: the board area's width, plus the room on its left the board may move into
   // (minus ADD_EDGE_GAP: the last digit stops that far from the board area's edge, which is 2px from the steps window,
@@ -87,12 +90,14 @@ export function useAddSubFit({ num1, num2, availableWidth, availableHeight, left
   const anchored = !!natural && leftRoom !== 0 && natural.tl != null;
   // (the drums need `extra` more px on the left when the board shrinks: see DrumZoom)
   const fitW = !natural || !availableWidth ? 1
-    : anchored ? Math.max(wide ? ADD_MIN_FIT_DESK : ADD_MIN_FIT_SMALL, Math.min(1, (viewW + room) / Math.max(1, natural.w - (natural.tl ?? 0))))
-    : wide ? Math.max(ADD_MIN_FIT_DESK, Math.min(1, (viewW + room) / natural.w, right11 === null ? 1 : (right11 + room) / natural.w))
+    : anchored ? Math.max(wide ? ADD_MIN_FIT_DESK : ADD_MIN_FIT_SMALL, Math.min(cap, (viewW + room) / Math.max(1, natural.w - (natural.tl ?? 0))))
+    : wide ? Math.max(ADD_MIN_FIT_DESK, Math.min(cap, (viewW + room) / natural.w, right11 === null ? cap : (right11 + room) / natural.w))
     // tablet / phone: fit the screen
-    : solveFit(natural.dw, extra => Math.max(ADD_MIN_FIT_SMALL, Math.min(1, ((availableWidth ?? 0) + 8) / (natural.w + extra))), phone);
+    : solveFit(natural.dw, extra => Math.max(ADD_MIN_FIT_SMALL, Math.min(cap, ((availableWidth ?? 0) + 8) / (natural.w + extra))), phone);
   // A phone: also as tall as the room above the open steps window, down to 40% (Julian: the sum mustn't run under it)
-  const fitH = natural && phone && availableHeight && natural.h ? Math.max(0.4, Math.min(1, (availableHeight - 4) / natural.h)) : 1;
+  const fitH = natural && phone && availableHeight && natural.h ? Math.max(0.4, Math.min(1, (availableHeight - 4) / natural.h))
+    // (sideways: as tall as the room allows, up to LAND_FIT)
+    : natural && land && availableHeight && natural.h ? Math.max(ADD_MIN_FIT_DESK, Math.min(cap, (availableHeight - 4) / natural.h)) : cap;
   const fit = Math.min(fitW, fitH);
   const W = natural ? natural.w * fit : 0;
   // Steps window collapsed (Julian; desktop, tablet and phone): the numbers (from the first digit to the last) centred

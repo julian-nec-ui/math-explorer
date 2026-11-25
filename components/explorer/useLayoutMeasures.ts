@@ -30,6 +30,7 @@ export function useHeaderBand(headerRef: Ref<HTMLDivElement>, titleSlotRef: Ref<
 }
 
 // The board area's size, stored in nominal px (at a 16px root font size), the unit the boards compute their geometry in
+const DESK_QUERY = '(min-width: 48rem) and (min-height: 37.5rem)';
 export function useViewSize(viewRef: Ref<HTMLDivElement>): { viewWidth: number; viewHeight: number } {
   const [viewWidth, setViewWidth] = useState(0);
   const [viewHeight, setViewHeight] = useState(0);
@@ -45,7 +46,8 @@ export function useViewSize(viewRef: Ref<HTMLDivElement>): { viewWidth: number; 
       const k = REM_PX / rootPx;
       const cs = getComputedStyle(el);
       setViewWidth((el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) * k);
-      if (!window.matchMedia('(min-width: 48rem)').matches) {
+      // (and a phone held sideways, Julian: not `desk`, the page scrolls there too)
+      if (!window.matchMedia(DESK_QUERY).matches) {
         const steps = document.querySelector<HTMLElement>('div.sticky.bottom-0');
         const top = el.getBoundingClientRect().top + window.scrollY;
         const h = Math.round(Math.max(120, window.innerHeight - top - (steps?.offsetHeight ?? 0) - 8) * k);
@@ -66,7 +68,7 @@ export function useViewSize(viewRef: Ref<HTMLDivElement>): { viewWidth: number; 
     // A phone: checked every frame too (cheap, and only a change re-renders): what moves the area's top or resizes the
     // steps window doesn't always resize something observed, and a stale height let the board run under the window
     let raf = 0;
-    const tick = () => { if (!window.matchMedia('(min-width: 48rem)').matches) measure(); raf = requestAnimationFrame(tick); };
+    const tick = () => { if (!window.matchMedia(DESK_QUERY).matches) measure(); raf = requestAnimationFrame(tick); };
     raf = requestAnimationFrame(tick);
     return () => { ro.disconnect(); window.removeEventListener('resize', measure); cancelAnimationFrame(raf); };
   }, []);

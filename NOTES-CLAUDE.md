@@ -589,3 +589,13 @@ Totul arată și se comportă exact ca înainte (verificat: HTML-ul paginii iden
 - Pe telefon, Explain to Me / New Numbers / Stop nu mai au cutia din jur. Stau pe același rând, cu Explain to Me sub Pause și Stop terminându-se sub tabul Fractions, la distanțe egale. Butoanele au aceeași lățime ca înainte, iar textul e cu 30% mai mare (14.3px).
 - Ceasul la Prev / Next: arată timpul la care a început pasul (`nav.timeAt`, învățat în rulare). La locul unde s-a pus pauza arată timpul pauzei, iar la final timpul final. Resume continuă de la pasul afișat, cu ceasul de acolo.
 - Pe telefon, cât timp o rotiță sau o cifră e mărită (`setGrown` / `useGrownLock` în OperandDrum), Explain to Me / New Numbers / Stop sunt dezactivate. Revin la 400ms după ce se micșorează, ca atingerea din afară să nu le apese.
+
+## Telefon în landscape (`land`: ≥48rem lățime, <37.5rem înălțime) (25 nov 2026)
+- Varianta `land` e definită în globals.css; `useLand()` și `LAND_FIT` (1.4) sunt în OperandDrum.
+- Coloana de butoane stă sus în stânga (top 4), lată de 22rem, cu aranjamentul compact de telefon. Clasele „de telefon” sunt acum `phone:` (nu `max-md:`), iar cele de desktop sunt `desk:` (nu `md:`), ca să se aplice și în landscape.
+- Tabla e în dreapta (`land:pl-[23.5rem]`). Poate crește până la 1.4× (FitBoard, useFit), limitată de înălțimea dintre tab-uri și bara de explicații. Rotițele cresc odată cu tabla.
+- În landscape, alinierile la cronometru (`sdShift` / `navShift`) sunt oprite.
+- Titlul e mai mic (34px), tab-urile stau pe același rând cu titlul, padding de sus mai mic.
+- Împărțire: CLASSIC / EQUAL DECIMALS și REMAINDER / DECIMALS stau câte două pe rând.
+- Fracții: se potrivesc și pe înălțime.
+- `useViewSize` măsoară înălțimea ca pe telefon oriunde nu e `desk`.
