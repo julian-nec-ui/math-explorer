@@ -119,8 +119,10 @@ export function DrumLayer({ host }: { host: RefObject<HTMLDivElement | null> }):
           const g = grow.current[part as FracPart];
           if (g) g.now += (g.target - g.now) * 0.25;
           const extra = g && Math.abs(g.now - 1) > 0.001 ? g.now : 1;
-          // (grown from its middle)
-          const dx = (r.width * (extra - 1)) / 2, dy = (r.height * (extra - 1)) / 2;
+          // (grown from the middle of its left edge, so it stays whole inside the board area — it starts at the area's
+          // left edge on a phone — and only reaches into the gap before N1 / N2; never above the area's top)
+          const dx = 0;
+          const dy = Math.min((r.height * (extra - 1)) / 2, Math.max(0, r.top - hr.top - 2));
           el.style.visibility = '';
           el.style.zIndex = extra > 1 ? '50' : '';
           el.style.transform = `translate(${r.left - hr.left + h.scrollLeft - dx}px, ${r.top - hr.top + h.scrollTop - dy}px) scale(${scale * extra})`;

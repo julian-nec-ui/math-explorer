@@ -20,7 +20,7 @@ const roundedPath = (pts: [number, number][], r: number | ((corner: [number, num
   return `${d} L${lx} ${ly}`;
 };
 
-// Operation tabs: five equal columns below lg (symbol above the name on a phone), one row on the right from lg up.
+// Operation tabs: five equal columns below lg (only the name, as on a tablet or desktop: no symbol on a phone, it saves room), one row on the right from lg up.
 // The snake line (see `snake` above) is drawn over them, in an SVG the size of the tab row
 export function OperationTabs({ navRef, activeOp, color, isAnimating, bandInline, onSelect }: { navRef: RefObject<HTMLElement | null>; activeOp: MathOp; color: string; isAnimating: boolean; bandInline: boolean; onSelect: (op: MathOp) => void }): ReactElement {
   // Operation tabs as a "snake": one line that runs down the left edge of the first tab, along its bottom, up between
@@ -96,11 +96,10 @@ export function OperationTabs({ navRef, activeOp, color, isAnimating, bandInline
             disabled={isAnimating}
             onClick={() => onSelect(op.id)}
             aria-pressed={active}
-            className={`relative min-w-0 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1 px-1 sm:px-2.5 lg:px-2 rounded-md text-[9.5px] sm:text-[11px] font-semibold cursor-pointer transition-all hover:brightness-125 disabled:opacity-50 disabled:hover:brightness-100 py-1.5 bg-transparent ${active ? 'font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
+            className={`relative min-w-0 flex flex-row items-center justify-center gap-0.5 sm:gap-1 px-0 sm:px-2.5 lg:px-2 rounded-md text-[9.5px] sm:text-[11px] font-semibold cursor-pointer transition-all hover:brightness-125 disabled:opacity-50 disabled:hover:brightness-100 py-1.5 bg-transparent ${active ? 'font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
             // No background: the active tab is shown by its stretch of the line and its name, both in its colour
             style={active ? { color: op.color } : undefined}
           >
-            <span className="relative sm:hidden text-lg font-black leading-none" aria-hidden="true">{op.icon === '-' ? '−' : op.icon}</span>
             <span className="relative max-w-full truncate">{op.label}</span>
             {!op.board && <span className="relative hidden sm:inline text-[8px] font-bold uppercase tracking-wider px-1 py-px rounded bg-zinc-800 text-zinc-500 border border-zinc-700">Soon</span>}
           </button>

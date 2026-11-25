@@ -71,9 +71,12 @@ export function Digit({ digit, variant, isNum1 = true, onIncrement, onDecrement,
       const k = target / s;
       const half = (css * target) / 2;
       const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-      const W = window.innerWidth, H = window.innerHeight;
-      const dx = cx - half < 8 ? 8 - (cx - half) : cx + half > W - 8 ? W - 8 - (cx + half) : 0;
-      const dy = cy - half < 8 ? 8 - (cy - half) : cy + half > H - 8 ? H - 8 - (cy + half) : 0;
+      // kept whole inside the board area (it clips what sticks out) and the screen, 4px in
+      const area = el.closest('.steps-scroll')?.getBoundingClientRect();
+      const L = Math.max(4, (area?.left ?? 0) + 4), R = Math.min(window.innerWidth, area?.right ?? window.innerWidth) - 4;
+      const T = Math.max(4, (area?.top ?? 0) + 4), B = window.innerHeight - 4;
+      const dx = cx - half < L ? L - (cx - half) : cx + half > R ? R - (cx + half) : 0;
+      const dy = cy - half < T ? T - (cy - half) : cy + half > B ? B - (cy + half) : 0;
       setGrow(`translate(${dx / s}px, ${dy / s}px) scale(${k})`);
     }
     show();
