@@ -4,7 +4,8 @@ import { useElapsedTimer } from './useElapsedTimer';
 
 // The explanation under way: its steps (numbered as they come), the status line, running / paused, the board's key
 // (a reset remounts it) and run flag, and the elapsed-time counter
-const START_DELAY_MS = 150;
+// (Julian) only after an earlier explanation (the counter not at 0); at 0 it starts at once
+const START_DELAY_MS = 250;
 
 export function useExplanation() {
   const [status, setStatus] = useState('');
@@ -66,16 +67,20 @@ export function useExplanation() {
 
   // Explain to Me: a fresh explanation starts (the board runs it), with the counter from 0
   // (Julian) The board is cleared and the counter set to 0 at once; the explanation and the counter start
-  // START_DELAY_MS later, so the fresh start can be seen
+  // START_DELAY_MS later, so the fresh start can be seen. With the counter already at 0 (nothing was explained yet)
+  // there is nothing to clear, so it starts at once
   const begin = () => {
+    const wait = elapsed > 0;
     resetResult();
     setIsAnimating(true);
-    startRef.current = window.setTimeout(() => {
+    const start = () => {
       // (a fresh board, made with run = true: some boards read `run` only when they are made)
       setBoardKey(k => k + 1);
       setBoardRun(true);
       timerStart();
-    }, START_DELAY_MS);
+    };
+    if (wait) startRef.current = window.setTimeout(start, START_DELAY_MS);
+    else start();
   };
   // The board finished its explanation
   const finish = () => { timerHold(); setIsAnimating(false); };

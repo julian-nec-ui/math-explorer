@@ -550,6 +550,7 @@ Totul arată și se comportă exact ca înainte (verificat: HTML-ul paginii iden
   închisă).
 - Redo a dispărut cu totul (buton + logică): Explain to Me pornește oricum de la început.
 - Explain to Me: tabla se curăță și cronometrul trece la 0 imediat; explicația și cronometrul pornesc după 150 ms
+  - Actualizat: dacă TIME ELAPSED e deja 0, pornește imediat; altfel 0 → 250 ms (START_DELAY_MS) → pornește
   (START_DELAY_MS în useExplanation), cu o tablă nouă făcută cu run = true (unele table citesc `run` doar la creare).
 
 
