@@ -581,3 +581,4 @@ Totul arată și se comportă exact ca înainte (verificat: HTML-ul paginii iden
 - `drumScaleFor(fit, phone)`: pe telefon rotițele pornesc de la 125% și rămân așa cât timp tabla e la 80% sau mai mult. Apoi scad blând până la curba normală (minimum 80%). `drumExtra` și `solveFit` primesc și ele `phone`.
 - Adunare/scădere pe telefon: rândul de carry e cu 8px mai aproape de N1 (`max-md:-mb-2`), deci numerele sunt mai aproape de Explain to Me.
 - Pe telefon: 4px între step delay, Pause, Prev/Next și banda Explain to Me.
+- Pe telefon, minimum 2px între două rotițe una sub alta (DrumLayer): când s-ar atinge, se desenează mai mici, față de mijlocul lor, iar marginea dreaptă rămâne pe loc.

@@ -115,11 +115,28 @@ export function DrumLayer({ host }: { host: RefObject<HTMLDivElement | null> }):
       if (h) {
         const hr = h.getBoundingClientRect();
         const rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+        const rects: Partial<Record<string, DOMRect>> = {};
+        for (const part of Object.keys(els.current)) {
+          const place = h.querySelector<HTMLElement>(`[data-drumpart="${part}"]`);
+          if (place) rects[part] = place.getBoundingClientRect();
+        }
         for (const [part, el] of Object.entries(els.current)) {
           if (!el) continue;
-          const place = h.querySelector<HTMLElement>(`[data-drumpart="${part}"]`);
-          if (!place) { el.style.visibility = 'hidden'; continue; }
-          const r = place.getBoundingClientRect();
+          const r0 = rects[part];
+          if (!r0) { el.style.visibility = 'hidden'; continue; }
+          // On a phone (Julian) at least 2px between two drums one above the other (N1 / N2, a fraction's two drums):
+          // when the board is drawn so small that they would touch, they are drawn smaller, about their middle (the
+          // right edge, next to the tag, stays)
+          let r = r0;
+          if (phone) {
+            let k = 1;
+            for (const [other, o] of Object.entries(rects)) {
+              if (other === part || !o || o.right <= r0.left || o.left >= r0.right) continue;
+              const room = Math.abs((o.top + o.bottom) / 2 - (r0.top + r0.bottom) / 2) - 2;
+              if (room > 0 && (r0.height + o.height) / 2 > room) k = Math.min(k, (2 * room) / (r0.height + o.height));
+            }
+            if (k < 1) r = new DOMRect(r0.right - r0.width * k, r0.top + (r0.height * (1 - k)) / 2, r0.width * k, r0.height * k);
+          }
           const scale = r.width / ((DRUM_W / 16) * rootPx);
           const g = grow.current[part as FracPart];
           if (g) g.now += (g.target - g.now) * 0.25;
@@ -137,7 +154,7 @@ export function DrumLayer({ host }: { host: RefObject<HTMLDivElement | null> }):
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [host]);
+  }, [host, phone]);
   if (!c) return null;
   return (
     <>
