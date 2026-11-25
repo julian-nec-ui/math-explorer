@@ -8,8 +8,8 @@ export function ActionButtons({ wide, label, busy, explainDisabled, title, onExp
   // In the column the buttons share its width, so they keep a small padding
   const pad = wide ? 'px-2' : 'px-2 sm:px-5 lg:px-4';
   // (Julian) on a phone, in the band under the controls: each button as wide as before (a third of the row less the old
-  // padding and gaps: 42px), the text inside 30% bigger
-  const phone = wide ? 'max-md:w-[calc((100%-2.625rem)/3)] max-sm:text-[14.3px] sm:max-md:text-[13px]' : '';
+  // padding and gaps: 42px), the text inside 30% bigger, 24% less tall (40px → 30.4px; 32px → 24.3px from sm)
+  const phone = wide ? 'max-md:w-[calc((100%-2.625rem)/3)] max-sm:text-[14.3px] sm:max-md:text-[13px] max-sm:h-[1.9rem] sm:max-md:h-[1.52rem]' : '';
   return (
     <>
                 <button
