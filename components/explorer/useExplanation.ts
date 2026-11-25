@@ -5,9 +5,7 @@ import { useElapsedTimer } from './useElapsedTimer';
 // The explanation under way: its steps (numbered as they come), the status line, running / paused, the board's key
 // (a reset remounts it) and run flag, and the elapsed-time counter
 // (Julian) only after an earlier explanation (the counter not at 0); at 0 it starts at once
-const START_DELAY_MS = 250;
-// (Julian) on a phone (narrower than md) the wait is longer, so it can be seen
-const START_DELAY_PHONE_MS = 400;
+const START_DELAY_MS = 400;
 
 export function useExplanation() {
   const [status, setStatus] = useState('');
@@ -81,8 +79,7 @@ export function useExplanation() {
       setBoardRun(true);
       timerStart();
     };
-    const phone = !window.matchMedia('(min-width: 48rem)').matches;
-    if (wait) startRef.current = window.setTimeout(start, phone ? START_DELAY_PHONE_MS : START_DELAY_MS);
+    if (wait) startRef.current = window.setTimeout(start, START_DELAY_MS);
     else start();
   };
   // The board finished its explanation
