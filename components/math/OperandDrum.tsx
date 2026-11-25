@@ -1,11 +1,15 @@
 "use client";
 
 // How many digits a number has, turned on a steel drum right next to the number on the board (Julian): left of N1 and
-// left of N2 (fractions: left of each fraction, its numerator's drum over its denominator's). Drawn inside the board,
-// so it shrinks with the board when the board has to shrink, and only then. The page gives the counts through
-// `DigitDrums`; without it (nothing to change) no drum is drawn
+// left of N2 (fractions: left of each fraction, its numerator's drum over its denominator's). The page gives the
+// counts through `DigitDrums`; without it (nothing to change) no drum is drawn.
+// The board is made anew for every new problem (every digit-count change), and a drum inside it would be made anew
+// too, losing what it was doing: the white arrow of the cursor while counting, the wheel / trackpad gesture going on,
+// a drag, the keyboard focus (Julian: the arrows stopped working). So the board only keeps a PLACE for each drum
+// (`OperandDrum`, same size, moved and scaled with the board), and the real drums live in `DrumLayer`, made once by
+// the page and drawn over their places, frame by frame
 
-import { createContext, useContext, type ReactElement } from 'react';
+import { createContext, useContext, useEffect, useRef, type ReactElement, type RefObject } from 'react';
 import { CountDrum } from './Drum';
 import type { FracPart } from './types';
 
@@ -15,6 +19,8 @@ export interface DigitDrumsValue {
   set: (part: FracPart, v: number) => void;
   disabled: boolean;
   label: (part: FracPart) => string;
+  // the drums of the operation shown (n1, n2; fractions: n1, d1, n2, d2)
+  parts: FracPart[];
 }
 export const DigitDrums = createContext<DigitDrumsValue | null>(null);
 
@@ -39,15 +45,56 @@ export const solveFit = (drumW: number, fitFor: (extra: number) => number): numb
   return f;
 };
 
-// `dy`: moved up (negative) or down by that many px, the digits staying where they are
+// The drum's place on the board (see above): as big as a count drum (w-14 × h-10), `dy`: moved up (negative) or down
+// by that many px, the digits staying where they are; scaled with DrumZoom
 export function OperandDrum({ part, dy = 0 }: { part: FracPart; dy?: number }): ReactElement | null {
   const c = useContext(DigitDrums);
   const zoom = useContext(DrumZoom);
   if (!c) return null;
-  const v = c.value(part);
   return (
-    <div data-drum className="relative pointer-events-auto shrink-0" style={{ ...(dy ? { top: dy } : {}), ...(zoom !== 1 ? { transform: `scale(${zoom})`, transformOrigin: 'right center' } : {}) }}>
-      <CountDrum value={v} min={1} max={c.max} onChange={x => c.set(part, x)} color={part.endsWith('1') ? 'cyan' : 'pink'} disabled={c.disabled} label={`${c.label(part)}: ${v}`} />
-    </div>
+    <div data-drum data-drumpart={part} aria-hidden="true" className="relative w-14 h-10 shrink-0 pointer-events-none" style={{ ...(dy ? { top: dy } : {}), ...(zoom !== 1 ? { transform: `scale(${zoom})`, transformOrigin: 'right center' } : {}) }} />
+  );
+}
+
+// The real drums, made once by the page inside the board area (`host`, the area that scrolls), each drawn over its
+// place on the board (position and scale read every frame, so it follows the board when it moves, shrinks or scrolls).
+// Hidden while its place isn't on the board (e.g. addition while the rewritten problem is shown)
+export function DrumLayer({ host }: { host: RefObject<HTMLDivElement | null> }): ReactElement | null {
+  const c = useContext(DigitDrums);
+  const els = useRef<Partial<Record<FracPart, HTMLDivElement | null>>>({});
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      const h = host.current;
+      if (h) {
+        const hr = h.getBoundingClientRect();
+        const rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+        for (const [part, el] of Object.entries(els.current)) {
+          if (!el) continue;
+          const place = h.querySelector<HTMLElement>(`[data-drumpart="${part}"]`);
+          if (!place) { el.style.visibility = 'hidden'; continue; }
+          const r = place.getBoundingClientRect();
+          const scale = r.width / ((DRUM_W / 16) * rootPx);
+          el.style.visibility = '';
+          el.style.transform = `translate(${r.left - hr.left + h.scrollLeft}px, ${r.top - hr.top + h.scrollTop}px) scale(${scale})`;
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [host]);
+  if (!c) return null;
+  return (
+    <>
+      {c.parts.map(part => {
+        const v = c.value(part);
+        return (
+          <div key={part} ref={el => { els.current[part] = el; }} className="absolute left-0 top-0 z-20 origin-top-left" style={{ visibility: 'hidden' }}>
+            <CountDrum value={v} min={1} max={c.max} onChange={x => c.set(part, x)} color={part.endsWith('1') ? 'cyan' : 'pink'} disabled={c.disabled} label={`${c.label(part)}: ${v}`} />
+          </div>
+        );
+      })}
+    </>
   );
 }

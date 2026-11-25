@@ -6,7 +6,7 @@
 // board's frame (BoardView) and the measurements that place them (useLayoutMeasures)
 
 import { useRef, type ReactElement } from 'react';
-import { DigitDrums, FRAC_PARTS, cleanNumber, numberValue, useCellSize, type DigitDrumsValue, type FractionParts } from './math/shared';
+import { DigitDrums, DrumLayer, FRAC_PARTS, cleanNumber, numberValue, useCellSize, type DigitDrumsValue, type FractionParts } from './math/shared';
 import { OPERATIONS } from './operations/registry';
 import { ActionButtons } from './explorer/ActionButtons';
 import { BoardView } from './explorer/BoardView';
@@ -126,8 +126,8 @@ export default function MathExplorer(): ReactElement {
 
   // The digit-count drums, drawn on the board next to each number (see OperandDrum)
   const drums: DigitDrumsValue = activeOp === 'fractions'
-    ? { value: k => problem.fracCounts[k], max: FRACTION_MAX_DIGITS, set: problem.handleFracCountChange, disabled: isAnimating, label: k => FRACTION_LABELS[k] }
-    : { value: k => problem.digitCounts[activeOp][k === 'n1' || k === 'd1' ? 'n1' : 'n2'], max: 12, set: (k, v) => problem.handleDigitCountChange(k === 'n1' || k === 'd1' ? 'n1' : 'n2', v), disabled: isAnimating, label: k => `${k.toUpperCase()} Digits` };
+    ? { value: k => problem.fracCounts[k], max: FRACTION_MAX_DIGITS, set: problem.handleFracCountChange, disabled: isAnimating, label: k => FRACTION_LABELS[k], parts: ['n1', 'd1', 'n2', 'd2'] }
+    : { value: k => problem.digitCounts[activeOp][k === 'n1' || k === 'd1' ? 'n1' : 'n2'], max: 12, set: (k, v) => problem.handleDigitCountChange(k === 'n1' || k === 'd1' ? 'n1' : 'n2', v), disabled: isAnimating, label: k => `${k.toUpperCase()} Digits`, parts: ['n1', 'n2'] };
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col md:flex-row font-sans">
@@ -189,7 +189,7 @@ export default function MathExplorer(): ReactElement {
                 method under them), so wide numbers never run into them.
                 Numbers wider than the screen scroll sideways */}
             {/* steps-scroll: the same 8px #456175 scrollbars as the steps window */}
-            <div ref={viewRef} className="steps-scroll flex-1 min-w-0 min-h-0 overflow-auto flex md:pl-60 md:-mt-[0.5625rem]">
+            <div ref={viewRef} className="steps-scroll relative flex-1 min-w-0 min-h-0 overflow-auto flex md:pl-60 md:-mt-[0.5625rem]">
               {/* The active operation's board (see operations/registry). Multiplication and division sit in a padded frame and
                   start near the top of the panel, just below the title, at the same height for every operation */}
               <DigitDrums.Provider value={drums}>
@@ -206,6 +206,8 @@ export default function MathExplorer(): ReactElement {
                 pageMidX={pageMidX}
                 longest={Math.max(num1.digits.length, num2.digits.length)}
               />
+              {/* The digit-count drums, made once and drawn over their places on the board (see OperandDrum) */}
+              <DrumLayer host={viewRef} />
               </DigitDrums.Provider>
             </div>
 

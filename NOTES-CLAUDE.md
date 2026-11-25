@@ -533,3 +533,11 @@ Totul arată și se comportă exact ca înainte (verificat: HTML-ul paginii iden
 ## Telefon: fereastra de explicații lipită de marginea de jos (24 nov 2026)
 - Zona din mijloc are flex-1 și panoul nu are padding jos pe `phone` (variantă nouă în globals.css = tot ce nu e
   `desk`): fereastra stă pe marginea de jos a ecranului, deschisă sau strânsă, și se deschide doar în sus.
+
+## Rotițele de cifre: locul pe tablă, rotița reală în DrumLayer (24 nov 2026)
+- Tabla se reface la fiecare problemă nouă (boardKey), deci și la fiecare schimbare a numărului de cifre. O rotiță
+  desenată în tablă se refăcea și ea și pierdea ce făcea: săgeata albă a cursorului, gestul de rotiță/trackpad,
+  tragerea, focusul tastaturii (Julian: „săgețile nu mai merg”).
+- Acum tabla are doar locul rotiței (`OperandDrum`: div gol w-14 × h-10, `data-drumpart`, mutat și scalat ca înainte),
+  iar rotițele reale sunt în `DrumLayer` (MathExplorer, în viewRef, făcute o singură dată), puse peste locul lor la
+  fiecare cadru (poziție + scară citite din loc). Ascunse cât locul lipsește (ex. adunarea cu problema rescrisă).
