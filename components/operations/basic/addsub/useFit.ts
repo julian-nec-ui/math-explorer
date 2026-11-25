@@ -37,7 +37,7 @@ export function useAddSubFit({ num1, num2, availableWidth, availableHeight, left
       const yc = top ? ((top.top + top.height / 2 - r.top) / scale) * k : 0;
       const dr = cells.length ? ((Math.max(...cells.map(c => c.right)) - r.left) / scale) * k : w;
       const same = (a: number, b: number) => Math.abs(a - b) < 0.05;
-      setNatural(prev => (prev && same(prev.w, w) && same(prev.h, h) && same(prev.dl, dl) && same(prev.dr, dr) && same(prev.yc, yc) && same(prev.dw, dw) && prev.tl === tl ? prev : { w, h, dl, dr, yc, dw, tl }));
+      setNatural(prev => (prev && same(prev.w, w) && same(prev.h, h) && same(prev.dl, dl) && same(prev.dr, dr) && same(prev.yc, yc) && same(prev.dw, dw) && (prev.tl === tl || (prev.tl !== null && tl !== null && Math.abs(prev.tl - tl) < 0.5)) ? prev : { w, h, dl, dr, yc, dw, tl }));
     };
     measure();
     measureRef.current = measure;

@@ -552,3 +552,8 @@ Totul arată și se comportă exact ca înainte (verificat: HTML-ul paginii iden
 - Explain to Me: tabla se curăță și cronometrul trece la 0 imediat; explicația și cronometrul pornesc după 150 ms
   (START_DELAY_MS în useExplanation), cu o tablă nouă făcută cu run = true (unele table citesc `run` doar la creare).
 
+
+## Lecție: comparații exacte cu numere măsurate (24 nov 2026)
+- `prev.tl === tl` în FitBoard / useAddSubFit: `tl` e măsurat (rect / scară) și variază cu zecimale la fiecare
+  randare când scara se schimbă (tragerea ferestrei de pași) → setState la fiecare randare → React #185 (Maximum update
+  depth exceeded) și aplicația dispărea. Orice valoare măsurată se compară cu toleranță, niciodată cu ===.

@@ -81,7 +81,7 @@ export default function FitBoard({ children, availableWidth, leftRoom = 0, steps
       const top = cells.length ? cells.reduce((a, c) => (c.top < a.top ? c : a)) : null;
       const yc = top ? ((top.top + top.height / 2 - r.top) / scale) * k : 0;
       const same = (a: number, b: number) => Math.abs(a - b) < 0.05;
-      setNatural(prev => (prev && same(prev.w, w) && same(prev.h, h) && same(prev.cl, cl) && same(prev.yc, yc) && same(prev.dw, dw) && prev.tl === tl && Math.abs(prev.hd - hd) < 1 ? prev : { w, h, cl, yc, dw, tl, hd }));
+      setNatural(prev => (prev && same(prev.w, w) && same(prev.h, h) && same(prev.cl, cl) && same(prev.yc, yc) && same(prev.dw, dw) && (prev.tl === tl || (prev.tl !== null && tl !== null && Math.abs(prev.tl - tl) < 0.5)) && Math.abs(prev.hd - hd) < 1 ? prev : { w, h, cl, yc, dw, tl, hd }));
     };
     measure();
     measureRef.current = measure;
