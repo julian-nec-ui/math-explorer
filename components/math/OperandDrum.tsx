@@ -81,6 +81,28 @@ export function OperandDrum({ part, dy = 0 }: { part: FracPart; dy?: number }): 
 export function DrumLayer({ host }: { host: RefObject<HTMLDivElement | null> }): ReactElement | null {
   const c = useContext(DigitDrums);
   const els = useRef<Partial<Record<FracPart, HTMLDivElement | null>>>({});
+  // A phone (Julian): like a digit, a touched drum grows (20% here) and goes back 3 s after the last touch, or at once
+  // on a touch outside it. `grow`: each drum's extra scale now (eased towards its target every frame)
+  const phone = usePhone();
+  const grow = useRef<Partial<Record<FracPart, { now: number; target: number; timer: number }>>>({});
+  const touch = (part: FracPart) => {
+    const g = grow.current[part] ?? (grow.current[part] = { now: 1, target: 1, timer: 0 });
+    g.target = 1.2;
+    window.clearTimeout(g.timer);
+    g.timer = window.setTimeout(() => { g.target = 1; }, 3000);
+  };
+  useEffect(() => {
+    if (!phone) return;
+    const onDown = (e: PointerEvent) => {
+      for (const [part, g] of Object.entries(grow.current)) {
+        const el = els.current[part as FracPart];
+        if (g && g.target !== 1 && !(el && el.contains(e.target as Node))) { g.target = 1; window.clearTimeout(g.timer); }
+      }
+    };
+    document.addEventListener('pointerdown', onDown);
+    return () => document.removeEventListener('pointerdown', onDown);
+  }, [phone]);
+  useEffect(() => () => Object.values(grow.current).forEach(g => g && window.clearTimeout(g.timer)), []);
   useEffect(() => {
     let raf = 0;
     const tick = () => {
@@ -94,8 +116,14 @@ export function DrumLayer({ host }: { host: RefObject<HTMLDivElement | null> }):
           if (!place) { el.style.visibility = 'hidden'; continue; }
           const r = place.getBoundingClientRect();
           const scale = r.width / ((DRUM_W / 16) * rootPx);
+          const g = grow.current[part as FracPart];
+          if (g) g.now += (g.target - g.now) * 0.25;
+          const extra = g && Math.abs(g.now - 1) > 0.001 ? g.now : 1;
+          // (grown from its middle)
+          const dx = (r.width * (extra - 1)) / 2, dy = (r.height * (extra - 1)) / 2;
           el.style.visibility = '';
-          el.style.transform = `translate(${r.left - hr.left + h.scrollLeft}px, ${r.top - hr.top + h.scrollTop}px) scale(${scale})`;
+          el.style.zIndex = extra > 1 ? '50' : '';
+          el.style.transform = `translate(${r.left - hr.left + h.scrollLeft - dx}px, ${r.top - hr.top + h.scrollTop - dy}px) scale(${scale * extra})`;
         }
       }
       raf = requestAnimationFrame(tick);
@@ -109,7 +137,7 @@ export function DrumLayer({ host }: { host: RefObject<HTMLDivElement | null> }):
       {c.parts.map(part => {
         const v = c.value(part);
         return (
-          <div key={part} ref={el => { els.current[part] = el; }} className="absolute left-0 top-0 z-20 origin-top-left" style={{ visibility: 'hidden' }}>
+          <div key={part} ref={el => { els.current[part] = el; }} onPointerDownCapture={phone ? () => touch(part) : undefined} onWheelCapture={phone ? () => touch(part) : undefined} className="absolute left-0 top-0 z-20 origin-top-left" style={{ visibility: 'hidden' }}>
             <CountDrum value={v} min={1} max={c.max} onChange={x => c.set(part, x)} color={part.endsWith('1') ? 'cyan' : 'pink'} disabled={c.disabled} label={`${c.label(part)}: ${v}`} />
           </div>
         );
