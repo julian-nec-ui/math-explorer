@@ -9,7 +9,7 @@
 // (`OperandDrum`, same size, moved and scaled with the board), and the real drums live in `DrumLayer`, made once by
 // the page and drawn over their places, frame by frame
 
-import { createContext, useContext, useEffect, useRef, type ReactElement, type RefObject } from 'react';
+import { createContext, useContext, useEffect, useRef, useSyncExternalStore, type ReactElement, type RefObject } from 'react';
 import { CountDrum } from './Drum';
 import type { FracPart } from './types';
 
@@ -23,6 +23,25 @@ export interface DigitDrumsValue {
   parts: FracPart[];
 }
 export const DigitDrums = createContext<DigitDrumsValue | null>(null);
+
+// A phone (narrower than md, the controls column above the board): the boards start at the area's left edge, so the
+// digit-count drums line up with the left edge of the Explain to Me box (Julian), in every operation
+const MD_QUERY = '(min-width: 48rem)';
+const subscribeMd = (cb: () => void) => {
+  const q = window.matchMedia(MD_QUERY);
+  q.addEventListener('change', cb);
+  return () => q.removeEventListener('change', cb);
+};
+export const usePhone = (): boolean => useSyncExternalStore(subscribeMd, () => !window.matchMedia(MD_QUERY).matches, () => false);
+// How far the controls column (and so the Explain to Me box) sits left of the board area on a phone: EDGE_5 — 2px,
+// 10px from sm (40rem) up. Nominal px
+const SM_QUERY = '(min-width: 40rem)';
+const subscribeSm = (cb: () => void) => {
+  const q = window.matchMedia(SM_QUERY);
+  q.addEventListener('change', cb);
+  return () => q.removeEventListener('change', cb);
+};
+export const usePhoneEdge = (): number => useSyncExternalStore(subscribeSm, () => (window.matchMedia(SM_QUERY).matches ? 10 : 2), () => 2);
 
 // When the board shrinks (a phone, or the steps window made wider), the drums shrink much less than the digits
 // (Julian): not at all while the board is at 75% or more, then slowly, never below 80%

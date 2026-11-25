@@ -17,7 +17,7 @@
 // middle of the page, as far as the room allows. Tablet / phone: shrink to fit, down to 45%.
 
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactElement, type ReactNode } from 'react';
-import { DrumZoom, REM_PX, drumExtra, drumScaleFor, solveFit, toRem } from './shared';
+import { DrumZoom, REM_PX, drumExtra, drumScaleFor, solveFit, toRem, usePhone, usePhoneEdge } from './shared';
 
 const MIN_FIT_DESK = 0.5;
 // Height (Julian): when the board is still too tall with what is under its operands already at 70% (see lowerScale),
@@ -90,6 +90,8 @@ export default function FitBoard({ children, availableWidth, leftRoom = 0, steps
   useLayoutEffect(() => { measureRef.current(); });
 
   const wide = useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE_QUERY).matches, () => true);
+  const phone = usePhone();
+  const edge = usePhoneEdge();
   const viewW = (availableWidth ?? 0) + 16 - EDGE_GAP;
   // Held by its left end (the digit-count drums) whenever the controls column stands beside the board (md up: it gives
   // `leftRoom`), steps window open or not (Julian: the drums never move while digits change)
@@ -127,6 +129,9 @@ export default function FitBoard({ children, availableWidth, leftRoom = 0, steps
       // Held by its left end, the digit-count drums, at the far left (15px from the controls column), so they stay put
       // while digits are added or taken away (Julian): the numbers grow and shrink on their right
       left = -room;
+    } else if (phone) {
+      // a phone: the drums at the area's left edge, in line with the Explain to Me box (Julian)
+      left = -edge;
     } else if (stepsClosed && pageMidX !== undefined) {
       left = Math.min(viewW - Wc, Math.max(-leftRoom, pageMidX - Wc / 2));
     }

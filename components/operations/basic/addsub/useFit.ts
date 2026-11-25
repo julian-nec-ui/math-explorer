@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { REM_PX, solveFit, useCellSize, type NumberData } from '../../../math/shared';
+import { REM_PX, drumExtra, solveFit, useCellSize, usePhone, usePhoneEdge, type NumberData } from '../../../math/shared';
 import { ADD_MIN_FIT_DESK, ADD_SHIFT_MAX, ADD_EDGE_GAP, ADD_GROW_LEFT_FROM, ADD_MIN_FIT_SMALL, WIDE_QUERY, subscribeWide, G, COMMA_SLOT } from './model';
 
 // Addition / subtraction's size and place on the board area (Julian's rules): the board's natural size, measured; how
@@ -50,6 +50,8 @@ export function useAddSubFit({ num1, num2, availableWidth, leftRoom, stepsClosed
   const measureRef = useRef<() => void>(() => {});
   useLayoutEffect(() => { measureRef.current(); });
   const wide = useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE_QUERY).matches, () => true);
+  const phone = usePhone();
+  const edge = usePhoneEdge();
   // Desktop: the board area's width, plus the room on its left the board may move into
   // (minus ADD_EDGE_GAP: the last digit stops that far from the board area's edge, which is 2px from the steps window,
   // so 3px from the window in all, Julian)
@@ -99,6 +101,9 @@ export function useAddSubFit({ num1, num2, availableWidth, leftRoom, stepsClosed
   const shift = !natural ? 0
     // (the outer box is centred in availableWidth + 16; the drawn part starts dl in)
     : anchored ? Math.max(0, ((availableWidth ?? 0) + 16 - W) / 2) + (natural.tl ?? 0) * fit + room
+    // a phone: the drums (their left edge, drawn a little bigger when the board shrinks) at the area's left edge, in
+    // line with the Explain to Me box (Julian)
+    : phone ? Math.max(0, ((availableWidth ?? 0) + 16 - W) / 2) + (natural.dl - drumExtra(natural.dw, fit)) * fit + edge
     : stepsClosed && pageMidX !== undefined ? Math.max(0, (viewW - W) / 2) - closedLeft
     : !wide ? 0
     : right11 === null ? shiftFor(W, (ADD_SHIFT_MAX * Math.max(0, longest - 1)) / 11)

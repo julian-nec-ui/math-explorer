@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactElement } from 'react';
-import { CarryHop, Digit, OpIcon, OperandDrum, commaAfter, drumScaleFor, numberValue, type DigitVariant, type FracPart } from '../../math/shared';
+import { CarryHop, Digit, OpIcon, OperandDrum, commaAfter, drumScaleFor, numberValue, usePhoneEdge, type DigitVariant, type FracPart } from '../../math/shared';
 import { Bracket, Crossable, FracComma, EXPR_GAP, Eq, FR_HOP_END, FR_HOP_MS, FR_LAND_MS, FactorChip, type Frac, FracView, type FractionBoardProps, type Hop, MAX_WHOLE_PIECES, type Mark, Mul, Num, Paren, SignMark, SmallEq, Times, WarningIcon, gcd, lcm, primeFactors } from './model';
 import { runFractions } from './script';
 export { hasZeroDenominator } from './model';
@@ -124,6 +124,9 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
   // (read at once, not after the first paint: the board is made anew for every new problem, and one frame without the
   // margin made the fractions jump left and back)
   const mdUp = useSyncExternalStore(subscribeMd, () => window.matchMedia(MD_QUERY).matches, () => false);
+  // a phone: the drums in line with the Explain to Me box's left edge (the frame's 8px and the drums' own 4.5px taken
+  // back, plus the column's edge, see usePhoneEdge)
+  const edge = usePhoneEdge();
   useLayoutEffect(() => {
     const el = contentRef.current, row = el?.querySelector<HTMLElement>('[data-expr]');
     if (!el || !row || !availableWidth) return;
@@ -197,11 +200,11 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
 
   return (
     // The jumping square stays outside the zoomed part (it is placed in screen pixels)
-    <div className="flex flex-col items-center md:items-start">
+    <div className="flex flex-col items-start">
     {/* Zoomed to fit (see `fit`), and at most as wide as the board area, so the rows wrap (the second fraction under
         the first) instead of scrolling */}
-    <div ref={contentRef} className="flex flex-col items-center md:items-start" style={{ zoom: fit, marginLeft: mdUp ? `${6.0625 / fit}rem` : undefined, maxWidth: mdUp ? undefined : availableWidth ? Math.max(320, availableWidth - 16) / fit : undefined }}>
-      <div data-expr className="flex flex-wrap items-center justify-center md:justify-start gap-x-5 gap-y-4">
+    <div ref={contentRef} className="flex flex-col items-start" style={{ zoom: fit, marginLeft: mdUp ? `${6.0625 / fit}rem` : `${-(edge + 4) / 16 / fit}rem`, maxWidth: mdUp ? undefined : availableWidth ? Math.max(320, availableWidth - 16) / fit : undefined }}>
+      <div data-expr className="flex flex-wrap items-center justify-start gap-x-5 gap-y-4">
         {/* The problem (Julian): the second fraction under the first, both starting at the same place, each with its
             sign in round brackets and its digit-count drums on its left (half as far from the bracket as before); the
             + between them on the right, outside the brackets, centred on the right bracket (of the wider fraction) */}

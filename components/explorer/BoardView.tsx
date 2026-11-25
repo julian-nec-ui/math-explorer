@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
-import { REM_PX, toRem, type MathOp } from '../math/shared';
+import { REM_PX, toRem, usePhone, type MathOp } from '../math/shared';
 import FitBoard from '../math/FitBoard';
 
 // The frame of the boards that have no size rule of their own (fractions): centred in the width the board is laid out
@@ -37,6 +37,8 @@ function FramedBoard({ viewW, smooth, onNaturalWidth, anchored, children }: { vi
 // The active operation's board in its frame. Multiplication and division: the same size and place rule as addition /
 // subtraction (Julian), in a FitBoard; fractions in a FramedBoard; addition / subtraction size themselves
 export function BoardView({ activeOp, framed, board, boardViewW, viewHeight, smoothFit, onNaturalWidth, leftRoom, stepsClosed, pageMidX, longest }: { activeOp: MathOp; framed: boolean; board: ReactNode; boardViewW: number; viewHeight: number; smoothFit: boolean; onNaturalWidth: (w: number) => void; leftRoom: number; stepsClosed: boolean; pageMidX: number | undefined; longest: number }): ReactElement {
+  // (a phone: fractions start at the area's left edge too, see FramedBoard and FractionBoard)
+  const phone = usePhone();
   if (activeOp === 'multiplication' || activeOp === 'division') {
     return (
       <FitBoard availableWidth={Math.max(0, boardViewW - 16)} availableHeight={viewHeight} smooth={smoothFit} onNaturalWidth={onNaturalWidth} leftRoom={leftRoom} stepsClosed={stepsClosed} pageMidX={pageMidX} longest={longest}>
@@ -45,6 +47,6 @@ export function BoardView({ activeOp, framed, board, boardViewW, viewHeight, smo
     );
   }
   return framed
-    ? <FramedBoard viewW={boardViewW} smooth={smoothFit} onNaturalWidth={onNaturalWidth} anchored={leftRoom > 0}>{board}</FramedBoard>
+    ? <FramedBoard viewW={boardViewW} smooth={smoothFit} onNaturalWidth={onNaturalWidth} anchored={leftRoom > 0 || phone}>{board}</FramedBoard>
     : <>{board}</>;
 }
