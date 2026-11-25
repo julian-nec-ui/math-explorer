@@ -17,7 +17,7 @@
 // middle of the page, as far as the room allows. Tablet / phone: shrink to fit, down to 45%.
 
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactElement, type ReactNode } from 'react';
-import { DrumZoom, LAND_FIT, REM_PX, drumExtra, drumScaleFor, solveFit, toRem, useLand, usePhone, usePhoneEdge } from './shared';
+import { DrumZoom, LAND_FIT, REM_PX, drumExtra, drumScaleFor, solveFit, toRem, useLand, usePhone, usePhoneEdge, usePhoneSide } from './shared';
 
 const MIN_FIT_DESK = 0.5;
 // Height (Julian): when the board is still too tall with what is under its operands already at 70% (see lowerScale),
@@ -95,7 +95,9 @@ export default function FitBoard({ children, availableWidth, leftRoom = 0, steps
   const wide = useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE_QUERY).matches, () => true);
   const phone = usePhone();
   // (a phone held sideways: the board may be drawn bigger than normal, up to LAND_FIT)
-  const cap = useLand() ? LAND_FIT : 1;
+  // (and held sideways but narrower than md, Julian: bigger than upright, see usePhoneSide)
+  const side = usePhoneSide();
+  const cap = useLand() || side ? LAND_FIT : 1;
   const edge = usePhoneEdge();
   const viewW = (availableWidth ?? 0) + 16 - EDGE_GAP;
   // Held by its left end (the digit-count drums) whenever the controls column stands beside the board (md up: it gives
@@ -113,14 +115,14 @@ export default function FitBoard({ children, availableWidth, leftRoom = 0, steps
     // held by its N1 / N2 tags: what has to fit is from the tags to the right end (the drums hang to their left)
     : anchored ? Math.max(wide ? MIN_FIT_DESK : MIN_FIT_SMALL, Math.min(cap, (viewW + room) / Math.max(1, natural.w - tl)))
     : solveFit(natural.dw, extra => wide ? Math.max(MIN_FIT_DESK, Math.min(cap, (viewW + room) / (Wn + extra)))
-      : Math.max(MIN_FIT_SMALL, Math.min(1, ((availableWidth ?? 0) + 8) / (Wn + extra))), phone);
+      : Math.max(MIN_FIT_SMALL, Math.min(cap, ((availableWidth ?? 0) + 8) / (Wn + extra))), phone);
   // A phone: the height scale only goes down while the board lives (the board is made anew for every problem), so the
   // drawn height and the scale can't chase each other (the work area under the operands is scaled from it too)
   // (it starts again when the room changes: the steps window opened or closed, the phone turned)
-  const phoneMin = useRef({ f: 1, room: 0 });
+  const phoneMin = useRef({ f: LAND_FIT, room: 0 });
   const phoneFitH = (f: number) => {
     const m = phoneMin.current;
-    if (Math.abs((availableHeight ?? 0) - m.room) > 2) { m.room = availableHeight ?? 0; m.f = 1; }
+    if (Math.abs((availableHeight ?? 0) - m.room) > 2) { m.room = availableHeight ?? 0; m.f = cap; }
     if (f < m.f) m.f = f;
     return m.f;
   };
@@ -129,7 +131,7 @@ export default function FitBoard({ children, availableWidth, leftRoom = 0, steps
     // (a phone: down to 40%, so nothing runs under the open steps window, Julian)
     // A phone (Julian: nothing may run under the open steps window): what is drawn so far has to fit, and the board
     // keeps shrinking as rows appear, down to 40%; the room kept for rows to come doesn't count (it isn't laid out)
-    : phone ? phoneFitH(Math.max(0.4, Math.min(1, Math.floor(((availableHeight - 4) / Math.max(1, natural.hd + 16)) * 100) / 100)))
+    : phone ? phoneFitH(Math.max(0.4, Math.min(cap, Math.floor(((availableHeight - 4) / Math.max(1, natural.hd + 16)) * 100) / 100)))
     : Math.max(MIN_FIT_HEIGHT, Math.min(cap, Math.floor(((availableHeight - 4) / natural.h) * 100) / 100));
   const fit = Math.min(fitW, fitH);
   // The drums' extra room on the left at this scale (board px)

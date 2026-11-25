@@ -31,6 +31,8 @@ export function useHeaderBand(headerRef: Ref<HTMLDivElement>, titleSlotRef: Ref<
 
 // The board area's size, stored in nominal px (at a 16px root font size), the unit the boards compute their geometry in
 const DESK_QUERY = '(min-width: 48rem) and (min-height: 37.5rem)';
+// a phone held sideways, narrower than md (see usePhoneSide)
+const SIDE_QUERY = '(max-width: 47.99rem) and (orientation: landscape)';
 export function useViewSize(viewRef: Ref<HTMLDivElement>): { viewWidth: number; viewHeight: number } {
   const [viewWidth, setViewWidth] = useState(0);
   const [viewHeight, setViewHeight] = useState(0);
@@ -49,7 +51,9 @@ export function useViewSize(viewRef: Ref<HTMLDivElement>): { viewWidth: number; 
       // (and a phone held sideways, Julian: not `desk`, the page scrolls there too)
       if (!window.matchMedia(DESK_QUERY).matches) {
         const steps = document.querySelector<HTMLElement>('div.sticky.bottom-0');
-        const top = el.getBoundingClientRect().top + window.scrollY;
+        // (a phone held sideways, narrower than md, Julian: the boards are as tall as the screen above the steps window,
+        // not only the room under the controls; the page scrolls to show them)
+        const top = window.matchMedia(SIDE_QUERY).matches ? 0 : el.getBoundingClientRect().top + window.scrollY;
         const h = Math.round(Math.max(120, window.innerHeight - top - (steps?.offsetHeight ?? 0) - 8) * k);
         setViewHeight(prev => (prev === h ? prev : h));
       } else {
@@ -154,7 +158,8 @@ export function useScrollFollow(viewRef: Ref<HTMLDivElement>, isAnimating: boole
     runningRef.current = isAnimating;
     // when an explanation starts and the page itself scrolls (phones, phones held sideways), bring the board into view
     const el = viewRef.current;
-    if (!isAnimating || !el || el.scrollHeight > el.clientHeight + 1) return;
+    // (an area that doesn't scroll itself, overflow visible — a phone held sideways — scrolls the page)
+    if (!isAnimating || !el || (el.scrollHeight > el.clientHeight + 1 && getComputedStyle(el).overflowY !== 'visible')) return;
     const page = document.scrollingElement ?? document.documentElement;
     if (page.scrollHeight <= window.innerHeight + 1) return;
     if (el.getBoundingClientRect().top > 8) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -169,7 +174,7 @@ export function useScrollFollow(viewRef: Ref<HTMLDivElement>, isAnimating: boole
       if (!runningRef.current) return;
       // the board scrolls inside its own frame (desk), or, when the frame grows with it (phones, phones held sideways),
       // the page scrolls instead
-      const inFrame = el.scrollHeight > el.clientHeight + 1;
+      const inFrame = el.scrollHeight > el.clientHeight + 1 && getComputedStyle(el).overflowY !== 'visible';
       const page = document.scrollingElement ?? document.documentElement;
       if (!inFrame && page.scrollHeight <= window.innerHeight + 1) return;
       // the lowest piece of text that can be seen (leaves with text, not faded out)

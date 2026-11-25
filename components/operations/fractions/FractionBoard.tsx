@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactElement } from 'react';
-import { CarryHop, Digit, OpIcon, OperandDrum, commaAfter, drumScaleFor, numberValue, usePhoneEdge, type DigitVariant, type FracPart } from '../../math/shared';
+import { CarryHop, Digit, LAND_FIT, OpIcon, OperandDrum, commaAfter, drumScaleFor, numberValue, usePhoneEdge, usePhoneSide, type DigitVariant, type FracPart } from '../../math/shared';
 import { Bracket, Crossable, FracComma, EXPR_GAP, Eq, FR_HOP_END, FR_HOP_MS, FR_LAND_MS, FactorChip, type Frac, FracView, type FractionBoardProps, type Hop, MAX_WHOLE_PIECES, type Mark, Mul, Num, Paren, SignMark, SmallEq, Times, WarningIcon, gcd, lcm, primeFactors } from './model';
 import { runFractions } from './script';
 export { hasZeroDenominator } from './model';
@@ -128,6 +128,8 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
   // a phone: the drums in line with the Explain to Me box's left edge (the frame's 8px and the drums' own 4.5px taken
   // back, plus the column's edge, see usePhoneEdge)
   const edge = usePhoneEdge();
+  // held sideways but narrower than md (Julian): bigger than upright, up to LAND_FIT (see usePhoneSide)
+  const side = usePhoneSide();
   useLayoutEffect(() => {
     const el = contentRef.current, row = el?.querySelector<HTMLElement>('[data-expr]');
     if (!el || !row || !availableWidth) return;
@@ -143,13 +145,16 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
     const room = mdUp && area ? area.right - 3 - start - margin : (availableWidth - 16);
     // (down to 40%, not MIN_FIT: on a phone 12 digits must still fit, drums included, or the drums went off the screen —
     // Julian; the drums themselves shrink much less, see drumZoom)
-    const next = Math.max(0.4, Math.min(1, (room - dW) / Math.max(1, rest * 1.01)));
+    const next = Math.max(0.4, Math.min(side ? LAND_FIT : 1, (room - dW) / Math.max(1, rest * 1.01)));
     // A phone: also as tall as the room above the open steps window (Julian: nothing runs under it), down to 40%
     // (less the frame's 16px under it, pb-4 in FramedBoard)
     const hNat = el.getBoundingClientRect().height / fit;
     // (and a phone held sideways, Julian: short, so the fractions must fit its height too)
     const sideways = mdUp && window.matchMedia('(max-height: 37.49rem)').matches;
-    setFit((!mdUp || sideways) && availableHeight && hNat ? Math.min(next, Math.max(0.4, (availableHeight - 20) / hNat)) : next);
+    // (held sideways but narrower than md, Julian: bigger than upright there, at least 115% of their normal size — the
+    // page scrolls to show them)
+    const hFit = availableHeight && hNat ? Math.max(side ? 1.15 : 0.4, (availableHeight - 20) / hNat) : 0;
+    setFit((!mdUp || sideways) && hFit ? Math.min(next, hFit) : next);
   });
   // The drums' own zoom: back to their normal size (as in the other operations, they shrink only a little, late)
   const drumZoom = drumScaleFor(fit, !mdUp) / fit;

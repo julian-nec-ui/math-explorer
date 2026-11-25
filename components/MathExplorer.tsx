@@ -192,7 +192,11 @@ export default function MathExplorer(): ReactElement {
                 method under them), so wide numbers never run into them.
                 Numbers wider than the screen scroll sideways */}
             {/* steps-scroll: the same 8px #456175 scrollbars as the steps window */}
-            <div ref={viewRef} className="steps-scroll relative flex-1 min-w-0 min-h-0 overflow-auto flex md:pl-60 md:-mt-[0.5625rem] land:pl-[23.5rem]!">
+            {/* A phone (narrower than md): the area reaches as far left as the controls column (EDGE_5), so the digit-count
+                drums, in line with INTEGER / Pause / Explain to Me, aren't cut by its edge (Julian). Held sideways: it is as
+                tall as its board (bigger there, see usePhoneSide; pb-5: room for what the scaled board draws below its box) and
+                doesn't scroll itself (the rows kept for later in multiplication / division would make it): the page scrolls */}
+            <div ref={viewRef} className="steps-scroll relative flex-1 min-w-0 min-h-0 overflow-auto flex md:pl-60 md:-mt-[0.5625rem] land:pl-[23.5rem]! max-md:-ml-[0.125rem] max-md:pl-[0.125rem] sm:max-md:-ml-[0.625rem] sm:max-md:pl-[0.625rem] max-md:landscape:min-h-fit max-md:landscape:pb-5 max-md:landscape:overflow-visible">
               {/* The active operation's board (see operations/registry). Multiplication and division sit in a padded frame and
                   start near the top of the panel, just below the title, at the same height for every operation */}
               <DigitDrums.Provider value={drums}>

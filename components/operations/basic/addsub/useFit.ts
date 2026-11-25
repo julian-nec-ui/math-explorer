@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { LAND_FIT, REM_PX, drumExtra, solveFit, useCellSize, useLand, usePhone, usePhoneEdge, type NumberData } from '../../../math/shared';
+import { LAND_FIT, REM_PX, drumExtra, solveFit, useCellSize, useLand, usePhone, usePhoneEdge, usePhoneSide, type NumberData } from '../../../math/shared';
 import { ADD_MIN_FIT_DESK, ADD_SHIFT_MAX, ADD_EDGE_GAP, ADD_GROW_LEFT_FROM, ADD_MIN_FIT_SMALL, WIDE_QUERY, subscribeWide, G, COMMA_SLOT } from './model';
 
 // Addition / subtraction's size and place on the board area (Julian's rules): the board's natural size, measured; how
@@ -53,7 +53,9 @@ export function useAddSubFit({ num1, num2, availableWidth, availableHeight, left
   const phone = usePhone();
   // (a phone held sideways: the board may be drawn bigger than normal, up to LAND_FIT)
   const land = useLand();
-  const cap = land ? LAND_FIT : 1;
+  // (and held sideways but narrower than md, Julian: bigger than upright, see usePhoneSide)
+  const side = usePhoneSide();
+  const cap = land || side ? LAND_FIT : 1;
   const edge = usePhoneEdge();
   // Desktop: the board area's width, plus the room on its left the board may move into
   // (minus ADD_EDGE_GAP: the last digit stops that far from the board area's edge, which is 2px from the steps window,
@@ -95,7 +97,7 @@ export function useAddSubFit({ num1, num2, availableWidth, availableHeight, left
     // tablet / phone: fit the screen
     : solveFit(natural.dw, extra => Math.max(ADD_MIN_FIT_SMALL, Math.min(cap, ((availableWidth ?? 0) + 8) / (natural.w + extra))), phone);
   // A phone: also as tall as the room above the open steps window, down to 40% (Julian: the sum mustn't run under it)
-  const fitH = natural && phone && availableHeight && natural.h ? Math.max(0.4, Math.min(1, (availableHeight - 4) / natural.h))
+  const fitH = natural && phone && availableHeight && natural.h ? Math.max(0.4, Math.min(cap, (availableHeight - 4) / natural.h))
     // (sideways: as tall as the room allows, up to LAND_FIT)
     : natural && land && availableHeight && natural.h ? Math.max(ADD_MIN_FIT_DESK, Math.min(cap, (availableHeight - 4) / natural.h)) : cap;
   const fit = Math.min(fitW, fitH);

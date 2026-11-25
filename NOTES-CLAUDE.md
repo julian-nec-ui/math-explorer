@@ -487,6 +487,8 @@ Totul arată și se comportă exact ca înainte (verificat: HTML-ul paginii iden
 ## Pagina de modificări pe iterații (Julian, 24 nov 2026) — REGULĂ
 - Artifactul: https://claude.ai/artifact/PC7xyUKBvgMZVzLvdQwmYK („math-explorer changes”). Se republică același, după
   fiecare iterație, apoi se deschide.
+- Din 25 nov (altă sesiune, artifactul vechi nu se mai poate republica de aici): https://claude.ai/artifact/ACw4xhBL7HTGmsyQRApazQ
+  („math-explorer changes”, nou, iterațiile încep de la 1). Builder: /home/claude/mxiter/build_changes.py (prev/ = instantaneul).
 - **O iterație = o cerere a lui Julian** (cu toate încercările mele pentru ea). Stânga: arborele DOAR cu fișierele care
   s-au schimbat față de iterația anterioară (roșu = modificat, verde = nou), cu buton de copiere. Dreapta sus: diff în stil GitHub
   față de iterația anterioară (nu față de un commit): doar liniile schimbate, cu 3 linii de context, golurile strânse în
@@ -599,3 +601,14 @@ Totul arată și se comportă exact ca înainte (verificat: HTML-ul paginii iden
 - Împărțire: CLASSIC / EQUAL DECIMALS și REMAINDER / DECIMALS stau câte două pe rând.
 - Fracții: se potrivesc și pe înălțime.
 - `useViewSize` măsoară înălțimea ca pe telefon oriunde nu e `desk`.
+
+## Telefon culcat, mai îngust decât md (25 nov 2026)
+- `usePhoneSide()` (OperandDrum.tsx): `(max-width: 47.99rem) and (orientation: landscape)` — telefon ținut culcat, dar
+  sub md (ex. DevTools 932×430 cu fontul de 22px): coloana de butoane rămâne deasupra tablei, ca în portrait.
+- Acolo tabla poate fi mai mare decât în portrait (până la LAND_FIT 1.4): `useViewSize` dă ca înălțime tot ecranul de
+  deasupra ferestrei de explicații (nu doar ce rămâne sub butoane), fracțiile au minimum 115%. Zona nu se mai derulează
+  singură (`max-md:landscape:overflow-visible min-h-fit pb-5`): se derulează pagina, iar useScrollFollow urmărește
+  pagina când zona are overflow visible.
+- Rotițele N1 / N2 tăiate pe jumătate (Julian): stăteau la marginea stângă a lui INTEGER / Pause / Explain to Me, dar zona
+  tablei (care derulează, deci taie) începea mai la dreapta cu EDGE_5. Pe telefon (`max-md`) zona se întinde acum la stânga
+  cu EDGE_5 (`-ml` + `pl` egale, conținutul nu se mută): rotițele se văd întregi, aliniate cu cele 3 butoane.

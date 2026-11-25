@@ -42,6 +42,16 @@ const subscribeLand = (cb: () => void) => {
 export const useLand = (): boolean => useSyncExternalStore(subscribeLand, () => window.matchMedia(LAND_QUERY).matches, () => false);
 // How much bigger than normal the boards may be drawn on a phone held sideways (room permitting)
 export const LAND_FIT = 1.4;
+// A phone held sideways but narrower than md (Julian; the controls column stays above the board, as upright): there is
+// more room across, so the boards may grow past their upright size too (up to LAND_FIT), as tall as the screen above
+// the steps window (the page scrolls to show them)
+const SIDE_QUERY = '(max-width: 47.99rem) and (orientation: landscape)';
+const subscribeSide = (cb: () => void) => {
+  const q = window.matchMedia(SIDE_QUERY);
+  q.addEventListener('change', cb);
+  return () => q.removeEventListener('change', cb);
+};
+export const usePhoneSide = (): boolean => useSyncExternalStore(subscribeSide, () => window.matchMedia(SIDE_QUERY).matches, () => false);
 export const usePhone = (): boolean => useSyncExternalStore(subscribeMd, () => !window.matchMedia(MD_QUERY).matches, () => false);
 // How far the controls column (and so the Explain to Me box) sits left of the board area on a phone: EDGE_5 — 2px,
 // 10px from sm (40rem) up. Nominal px
