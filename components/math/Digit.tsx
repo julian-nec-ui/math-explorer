@@ -7,7 +7,7 @@ import type { DigitVariant } from './types';
 import { CELL } from './layout';
 import { RollingDigit } from './RollingDigit';
 import { DigitDrum } from './Drum';
-import { drumScaleFor, usePhone } from './OperandDrum';
+import { usePhone } from './OperandDrum';
 
 const VARIANT: Record<DigitVariant, string> = {
   highlight: 'bg-linear-to-br from-yellow-400 to-orange-500 text-zinc-900 border-yellow-300 scale-110 shadow-[0_0_20px_rgba(250,204,21,0.6)] z-30',
@@ -57,9 +57,9 @@ export function Digit({ digit, variant, isNum1 = true, onIncrement, onDecrement,
   // neighbours (they don't move), so it is easy to turn; it goes back 3 s after the last touch, or at once on a tap
   // outside it
   const phone = usePhone();
-  // The grown digit keeps its size on the screen even when the board is drawn smaller (many digits): twice the normal
-  // size while the board is at 75% or more, then only a little smaller (as the digit-count drums, down to 1.6×), and
-  // moved in if it would go past the screen's edges (8px)
+  // The grown digit keeps its size on the screen even when the board is drawn smaller (many digits): always twice the
+  // normal size, however small the board (Julian: not smaller with many digits), and moved in if it would go past the
+  // board area's edges (4px)
   const [grow, setGrow] = useState('scale(2)');
   const openPhone = () => {
     const el = rootRef.current;
@@ -67,7 +67,7 @@ export function Digit({ digit, variant, isNum1 = true, onIncrement, onDecrement,
       const r = el.getBoundingClientRect();
       const css = parseFloat(getComputedStyle(el).width) || r.width;
       const s = r.width / css || 1;
-      const target = 2 * drumScaleFor(s);
+      const target = 2;
       const k = target / s;
       const half = (css * target) / 2;
       const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
