@@ -7,7 +7,7 @@ import type { DigitVariant } from './types';
 import { CELL } from './layout';
 import { RollingDigit } from './RollingDigit';
 import { DigitDrum } from './Drum';
-import { usePhone } from './OperandDrum';
+import { drumScaleFor, usePhone } from './OperandDrum';
 
 const VARIANT: Record<DigitVariant, string> = {
   highlight: 'bg-linear-to-br from-yellow-400 to-orange-500 text-zinc-900 border-yellow-300 scale-110 shadow-[0_0_20px_rgba(250,204,21,0.6)] z-30',
@@ -57,6 +57,27 @@ export function Digit({ digit, variant, isNum1 = true, onIncrement, onDecrement,
   // neighbours (they don't move), so it is easy to turn; it goes back 3 s after the last touch, or at once on a tap
   // outside it
   const phone = usePhone();
+  // The grown digit keeps its size on the screen even when the board is drawn smaller (many digits): twice the normal
+  // size while the board is at 75% or more, then only a little smaller (as the digit-count drums, down to 1.6×), and
+  // moved in if it would go past the screen's edges (8px)
+  const [grow, setGrow] = useState('scale(2)');
+  const openPhone = () => {
+    const el = rootRef.current;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      const css = parseFloat(getComputedStyle(el).width) || r.width;
+      const s = r.width / css || 1;
+      const target = 2 * drumScaleFor(s);
+      const k = target / s;
+      const half = (css * target) / 2;
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      const W = window.innerWidth, H = window.innerHeight;
+      const dx = cx - half < 8 ? 8 - (cx - half) : cx + half > W - 8 ? W - 8 - (cx + half) : 0;
+      const dy = cy - half < 8 ? 8 - (cy - half) : cy + half > H - 8 ? H - 8 - (cy + half) : 0;
+      setGrow(`translate(${dx / s}px, ${dy / s}px) scale(${k})`);
+    }
+    show();
+  };
   const idleTimer = useRef(0);
   const arm = () => { window.clearTimeout(idleTimer.current); idleTimer.current = window.setTimeout(() => hide(), 3000); };
   useEffect(() => {
@@ -80,7 +101,7 @@ export function Digit({ digit, variant, isNum1 = true, onIncrement, onDecrement,
     ? { onPointerLeave: (e: ReactPointerEvent<HTMLDivElement>) => { if (e.pointerType === 'mouse') hide(); } }
     : {};
   const dotHandlers = {
-    onClick: () => { if (!visible) show(); },
+    onClick: (e: { stopPropagation: () => void }) => { if (visible) return; if (phone) { e.stopPropagation(); openPhone(); } else show(); },
   };
   const step = (dir: 1 | -1) => { if (phone) arm(); if (dir === 1) onIncrement?.(); else onDecrement?.(); };
 
@@ -91,10 +112,10 @@ export function Digit({ digit, variant, isNum1 = true, onIncrement, onDecrement,
       <div
         ref={rootRef}
         {...handlers}
-        onClick={phone && !visible ? show : undefined}
+        onClick={phone && !visible ? openPhone : undefined}
         onPointerDown={phone && visible ? arm : undefined}
         className={`${CELL} shrink-0 relative rounded-md border-2 overflow-hidden shadow-[0_2px_6px_rgba(0,0,0,0.5)] transition-[border-color,background-color,transform] ease-in-out ${frame} ${phone && visible ? 'z-50' : ''}`}
-        style={{ ...fade, ...(phone ? { transform: visible ? 'scale(2)' : 'scale(1)', transitionDuration: visible ? '250ms' : '750ms' } : {}) }}
+        style={{ ...fade, ...(phone ? { transform: visible ? grow : 'none', transitionDuration: visible ? '250ms' : '750ms' } : {}) }}
       >
         <div className="absolute inset-0 rounded-sm overflow-hidden flex items-center justify-center font-extrabold text-[26px] md:text-[30px] transition-opacity ease-in-out" style={{ opacity: visible ? 0 : 1, ...fade }}>
           <span className="translate-y-1.75"><RollingDigit value={digit} /></span>
