@@ -15,10 +15,10 @@ import type { Problem } from './useProblem';
 // all end in line with it
 const EDGE_3 = '-mr-[6px]';
 
-export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAnimating, paused, hasWork, blocked, stepDelay, setStepDelay, onRedo, onTogglePause, band }: {
+export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAnimating, paused, stepDelay, setStepDelay, onTogglePause, band }: {
   colRef: RefObject<HTMLDivElement | null>; cell: number; timerGap: number; elapsed: number; problem: Problem; isAnimating: boolean;
-  paused: boolean; hasWork: boolean; blocked: string | null; stepDelay: number; setStepDelay: (v: number) => void;
-  onRedo: () => void; onTogglePause: () => void;
+  paused: boolean; stepDelay: number; setStepDelay: (v: number) => void;
+  onTogglePause: () => void;
   // The control band, when it doesn't fit on the title's row (null otherwise)
   band: ReactNode;
 }): ReactElement {
@@ -49,7 +49,7 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
   const { activeOp, numberTypes, divisionMethod, effectiveDivisionResult, effectiveDecimals, changeDecimals, chooseType, chooseDivisionMethod, chooseDivisionResult } = problem;
   return (
     <div ref={colRef} className={`flex flex-col gap-2 w-full md:w-max md:max-w-60 md:absolute md:left-0 ${EDGE_5} md:z-10`} style={toRem({ top: colTop })}>
-      {/* The digit drums' box, INTEGER | FLOAT under it, Redo under them (as wide as both), then in division
+      {/* INTEGER | FLOAT (Redo is gone: Explain to Me starts from the beginning anyway, Julian), then in division
           CLASSIC and EQUAL DECIMALS, each on its own row: everything as wide as the drums' box (Julian) */}
       {/* On a phone (under md) the column is a normal row above the board: the elapsed time on its own line, at the top,
           centred */}
@@ -76,19 +76,8 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
           </button>
         );
       })}
-      {/* Redo: under INTEGER and FLOAT, as wide as both together; same height; blue (like Explain to Me) when it can be used, like the other
-          buttons when it can't. Shows the original problem again, as entered */}
-      <button
-        type="button"
-        onClick={onRedo}
-        disabled={isAnimating || !hasWork || !!blocked}
-        title={blocked ?? 'Back to the problem as it was entered'}
-        className={`col-span-2 ${EDGE_3} px-2 py-1 rounded-lg border text-xs font-bold leading-4 whitespace-nowrap transition-all text-white text-shadow-[0_1px_1px_rgba(0,0,0,0.3)] border-[#1b55b8] bg-linear-to-l from-[#22b8d6] to-[#1d5fd1] shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.25),0_2px_5px_rgba(0,0,0,0.35)] hover:-translate-y-px hover:from-[#3cc8e4] hover:to-[#2a6fe0] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.28),inset_0_-1px_0_rgba(0,0,0,0.25),0_2px_10px_rgba(34,184,214,0.45)] active:translate-y-0 disabled:bg-none disabled:bg-transparent disabled:border-zinc-700 disabled:text-zinc-500 disabled:shadow-none disabled:text-shadow-none disabled:hover:translate-y-0 disabled:cursor-default`}
-      >
-        Redo
-      </button>
       {/* Step delay (Julian; on a phone the drum sits 15px after its label, from md up at the column's right edge): extra time after each explanation step, 0 / 0.5 / 1 / 1.5 / 2 s, on a drum like the digit
-          counts (it stops at 0 and 2); the label left-aligned with Redo, the drum right-aligned with FLOAT. Unlike
+          counts (it stops at 0 and 2); the label left-aligned with INTEGER, the drum right-aligned with FLOAT. Unlike
           the other controls it works while an explanation runs: the step under way finishes as it was, the
           next ones take the new delay */}
       <div className="col-span-2 mt-1 flex items-center justify-start gap-[0.9375rem] md:justify-between md:gap-0" role="group" aria-label="Step delay">

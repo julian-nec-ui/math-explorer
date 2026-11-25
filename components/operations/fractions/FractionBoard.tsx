@@ -15,7 +15,7 @@ const subscribeMd = (cb: () => void) => {
 let lastFit = 1;
 const FIT_MS = 600;
 
-export default function FractionBoard({ num1, num2, run, onStatus, onDone, renderSign, hoverEdit = false, availableWidth, fraction, onCycleFractionDigit }: FractionBoardProps): ReactElement {
+export default function FractionBoard({ num1, num2, run, onStatus, onDone, renderSign, hoverEdit = false, availableWidth, availableHeight, fraction, onCycleFractionDigit }: FractionBoardProps): ReactElement {
   const f1: Frac = { n: numberValue(fraction.n1), d: numberValue(fraction.d1), s: num1.sign };
   const f2: Frac = { n: numberValue(fraction.n2), d: numberValue(fraction.d2), s: num2.sign };
   const ready = (['n1', 'd1', 'n2', 'd2'] as const).every(k => fraction[k].digits.length > 0);
@@ -143,7 +143,10 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
     // (down to 40%, not MIN_FIT: on a phone 12 digits must still fit, drums included, or the drums went off the screen —
     // Julian; the drums themselves shrink much less, see drumZoom)
     const next = Math.max(0.4, Math.min(1, (room - dW) / Math.max(1, rest * 1.01)));
-    setFit(next);
+    // A phone: also as tall as the room above the open steps window (Julian: nothing runs under it), down to 40%
+    // (less the frame's 16px under it, pb-4 in FramedBoard)
+    const hNat = el.getBoundingClientRect().height / fit;
+    setFit(!mdUp && availableHeight && hNat ? Math.min(next, Math.max(0.4, (availableHeight - 20) / hNat)) : next);
   });
   // The drums' own zoom: back to their normal size (as in the other operations, they shrink only a little, late)
   const drumZoom = drumScaleFor(fit) / fit;

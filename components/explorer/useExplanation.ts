@@ -4,6 +4,8 @@ import { useElapsedTimer } from './useElapsedTimer';
 
 // The explanation under way: its steps (numbered as they come), the status line, running / paused, the board's key
 // (a reset remounts it) and run flag, and the elapsed-time counter
+const START_DELAY_MS = 150;
+
 export function useExplanation() {
   const [status, setStatus] = useState('');
   // History of the explanation steps of the current computation, oldest first
@@ -39,7 +41,10 @@ export function useExplanation() {
     if (!text.startsWith('Done')) pace.owed = pace.stepMs;
   };
   
+  // Explain to Me waits START_DELAY_MS after clearing (see begin): a reset or Stop in that time cancels the start
+  const startRef = useRef(0);
   const resetResult = (keepBoard = false) => {
+    window.clearTimeout(startRef.current);
     setStatus(''); setIsAnimating(false);
     pace.owed = 0;
     // A paused explanation that is stopped or reset: everything runs again (the board is cleared anyway)
@@ -53,9 +58,6 @@ export function useExplanation() {
     setBoardRun(false);
   };
 
-  // Redo: back to the problem exactly as it was entered (signs and all), clearing the explanation and any rewrite
-  const hasWork = isAnimating || steps.length > 0 || boardRun;
-
   const stopComputation = () => {
     if (!isAnimating) return;
     resetResult();
@@ -63,14 +65,20 @@ export function useExplanation() {
   };
 
   // Explain to Me: a fresh explanation starts (the board runs it), with the counter from 0
+  // (Julian) The board is cleared and the counter set to 0 at once; the explanation and the counter start
+  // START_DELAY_MS later, so the fresh start can be seen
   const begin = () => {
     resetResult();
     setIsAnimating(true);
-    setBoardRun(true);
-    timerStart();
+    startRef.current = window.setTimeout(() => {
+      // (a fresh board, made with run = true: some boards read `run` only when they are made)
+      setBoardKey(k => k + 1);
+      setBoardRun(true);
+      timerStart();
+    }, START_DELAY_MS);
   };
   // The board finished its explanation
   const finish = () => { timerHold(); setIsAnimating(false); };
 
-  return { status, setStatus, steps, isAnimating, boardKey, boardRun, paused, elapsed, togglePause, announce, resetResult, hasWork, stopComputation, begin, finish };
+  return { status, setStatus, steps, isAnimating, boardKey, boardRun, paused, elapsed, togglePause, announce, resetResult, stopComputation, begin, finish };
 }

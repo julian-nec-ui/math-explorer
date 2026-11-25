@@ -541,3 +541,14 @@ Totul arată și se comportă exact ca înainte (verificat: HTML-ul paginii iden
 - Acum tabla are doar locul rotiței (`OperandDrum`: div gol w-14 × h-10, `data-drumpart`, mutat și scalat ca înainte),
   iar rotițele reale sunt în `DrumLayer` (MathExplorer, în viewRef, făcute o singură dată), puse peste locul lor la
   fiecare cadru (poziție + scară citite din loc). Ascunse cât locul lipsește (ex. adunarea cu problema rescrisă).
+
+## Telefon: tabla nu intră sub fereastra de explicații; Redo scos; start după 150 ms (24 nov 2026)
+- Pe telefon (useViewSize) înălțimea zonei = de la vârful ei până la vârful ferestrei de explicații (verificată la
+  fiecare cadru). Adunare/scădere (useAddSubFit) și fracții se micșorează pe înălțime până la 40%; înmulțirea și
+  împărțirea (FitBoard) se potrivesc după ce e DESENAT acum (hd), nu după rândurile rezervate, și scara doar scade cât
+  trăiește tabla (altfel bucla hd ↔ scară dădea React #185); repornește când se schimbă spațiul (fereastra deschisă /
+  închisă).
+- Redo a dispărut cu totul (buton + logică): Explain to Me pornește oricum de la început.
+- Explain to Me: tabla se curăță și cronometrul trece la 0 imediat; explicația și cronometrul pornesc după 150 ms
+  (START_DELAY_MS în useExplanation), cu o tablă nouă făcută cu run = true (unele table citesc `run` doar la creare).
+

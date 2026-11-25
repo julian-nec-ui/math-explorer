@@ -36,14 +36,39 @@ export function useViewSize(viewRef: Ref<HTMLDivElement>): { viewWidth: number; 
   useEffect(() => {
     const el = viewRef.current;
     if (!el) return;
-    // Stored in nominal px (at a 16px root font size), the unit the boards compute their geometry in
-    const ro = new ResizeObserver(entries => {
+    // Stored in nominal px (at a 16px root font size), the unit the boards compute their geometry in.
+    // A phone (narrower than md; the page scrolls, the area is as tall as its board): the height is the room from the
+    // area's top to the steps window's top (it sits on the screen's bottom edge), so with the steps window open the
+    // boards shrink instead of running under it (Julian)
+    const measure = () => {
       const rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || REM_PX;
-      setViewWidth(entries[0].contentRect.width * (REM_PX / rootPx));
-      setViewHeight(entries[0].contentRect.height * (REM_PX / rootPx));
-    });
+      const k = REM_PX / rootPx;
+      const cs = getComputedStyle(el);
+      setViewWidth((el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) * k);
+      if (!window.matchMedia('(min-width: 48rem)').matches) {
+        const steps = document.querySelector<HTMLElement>('div.sticky.bottom-0');
+        const top = el.getBoundingClientRect().top + window.scrollY;
+        const h = Math.round(Math.max(120, window.innerHeight - top - (steps?.offsetHeight ?? 0) - 8) * k);
+        setViewHeight(prev => (prev === h ? prev : h));
+      } else {
+        setViewHeight((el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)) * k);
+      }
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    return () => ro.disconnect();
+    const steps = document.querySelector<HTMLElement>('div.sticky.bottom-0');
+    if (steps) ro.observe(steps);
+    // (what is above the area — the controls column on a phone, taller in division — moves its top without resizing it)
+    const col = el.parentElement?.firstElementChild;
+    if (col && col !== el) ro.observe(col);
+    window.addEventListener('resize', measure);
+    // A phone: checked every frame too (cheap, and only a change re-renders): what moves the area's top or resizes the
+    // steps window doesn't always resize something observed, and a stale height let the board run under the window
+    let raf = 0;
+    const tick = () => { if (!window.matchMedia('(min-width: 48rem)').matches) measure(); raf = requestAnimationFrame(tick); };
+    raf = requestAnimationFrame(tick);
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure); cancelAnimationFrame(raf); };
   }, []);
   return { viewWidth, viewHeight };
 }
@@ -61,7 +86,12 @@ export function useTimerGap(titleRef: Ref<HTMLHeadingElement>, colRef: Ref<HTMLD
     if (titleRef.current) ro.observe(titleRef.current);
     if (colRef.current) ro.observe(colRef.current);
     window.addEventListener('resize', measure);
-    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+    // A phone: checked every frame too (cheap, and only a change re-renders): what moves the area's top or resizes the
+    // steps window doesn't always resize something observed, and a stale height let the board run under the window
+    let raf = 0;
+    const tick = () => { if (!window.matchMedia('(min-width: 48rem)').matches) measure(); raf = requestAnimationFrame(tick); };
+    raf = requestAnimationFrame(tick);
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure); cancelAnimationFrame(raf); };
   }, [activeOp, cell]);
   return timerGap;
 }
@@ -96,7 +126,12 @@ export function usePageRoom(viewRef: Ref<HTMLDivElement>, colRef: Ref<HTMLDivEle
     ro.observe(view);
     ro.observe(col);
     window.addEventListener('resize', measure);
-    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+    // A phone: checked every frame too (cheap, and only a change re-renders): what moves the area's top or resizes the
+    // steps window doesn't always resize something observed, and a stale height let the board run under the window
+    let raf = 0;
+    const tick = () => { if (!window.matchMedia('(min-width: 48rem)').matches) measure(); raf = requestAnimationFrame(tick); };
+    raf = requestAnimationFrame(tick);
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure); cancelAnimationFrame(raf); };
   }, []);
   return { leftRoom, pageMidX };
 }

@@ -48,7 +48,7 @@ export default function MathExplorer(): ReactElement {
   const activeConfig = OPERATIONS.find(o => o.id === activeOp) ?? OPERATIONS[0];
   // An operation is ready once it has a board
   const ready = !!activeConfig.board;
-  // Numbers that can't be explained (a fraction with the denominator 0): Explain to Me and Redo stay disabled, with
+  // Numbers that can't be explained (a fraction with the denominator 0): Explain to Me stays disabled, with
   // the reason as their tooltip, until the numbers change
   const blocked = activeConfig.blocked?.({ num1, num2, fraction: fracParts }) ?? null;
 
@@ -60,12 +60,6 @@ export default function MathExplorer(): ReactElement {
   const timerGap = useTimerGap(titleRef, colRef, activeOp, cell);
   const { leftRoom, pageMidX } = usePageRoom(viewRef, colRef);
   const colBottom = useColBottom(colRef, cell);
-
-  // Redo: back to the problem exactly as it was entered (signs and all), clearing the explanation and any rewrite
-  const redo = () => {
-    if (!x.hasWork || blocked) return;
-    x.resetResult();
-  };
 
   const startAnimation = () => {
     if (isAnimating || !ready || blocked || num1.digits.length === 0 || num2.digits.length === 0) return;
@@ -152,7 +146,7 @@ export default function MathExplorer(): ReactElement {
             <Title slotRef={titleSlotRef} titleRef={titleRef} label={activeConfig.label} color={activeConfig.color} />
           {/* Control band: Explain to Me, New Numbers and Stop on their own background, with the same padding on both sides.
               On the title's row while it fits there (from lg up, `bandInline`). Otherwise it moves into the controls column,
-              under the sliders and INTEGER / FLOAT / Redo (see below); this copy then stays invisible and out of the way,
+              under INTEGER / FLOAT (see below); this copy then stays invisible and out of the way,
               only so its width can still be measured */}
             <div ref={bandRef} aria-hidden={!bandInline || undefined} inert={!bandInline} className={`${bandInline ? 'lg:order-2' : 'invisible absolute top-0 left-0 pointer-events-none'} shrink-0 flex items-center bg-zinc-800/50 px-3 py-2 rounded-2xl border border-zinc-700`}>
               <div className="flex items-center gap-2.5">
@@ -173,11 +167,8 @@ export default function MathExplorer(): ReactElement {
                 problem={problem}
                 isAnimating={isAnimating}
                 paused={x.paused}
-                hasWork={x.hasWork}
-                blocked={blocked}
                 stepDelay={stepDelay}
                 setStepDelay={setStepDelay}
-                onRedo={redo}
                 onTogglePause={x.togglePause}
                 band={bandInline ? null : (
                   <div className="mt-3 w-0 min-w-full bg-zinc-800/50 px-3 py-2.5 md:py-2 rounded-2xl border border-zinc-700">
@@ -187,7 +178,7 @@ export default function MathExplorer(): ReactElement {
                   </div>
                 )}
               />
-            {/* From md up, left padding = the width of the Integer / Float / Redo buttons (and, in division, the decimal
+            {/* From md up, left padding = the width of the Integer / Float buttons (and, in division, the decimal
                 method under them), so wide numbers never run into them.
                 Numbers wider than the screen scroll sideways */}
             {/* steps-scroll: the same 8px #456175 scrollbars as the steps window */}

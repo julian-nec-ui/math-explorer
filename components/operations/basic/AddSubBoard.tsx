@@ -14,10 +14,10 @@ import { runAddSub } from './addsub/script';
 import { useAddSubFit } from './addsub/useFit';
 import { OP_BAR, OP_MARK } from './geometry';
 
-export default function AddSubBoard({ op, num1, num2, run, onStatus, onDone, renderSign, onCycleDigit, hoverEdit = false, availableWidth, leftRoom = 0, stepsClosed = false, pageMidX, smoothFit = false, onNaturalWidth }: AddSubBoardProps): ReactElement {
+export default function AddSubBoard({ op, num1, num2, run, onStatus, onDone, renderSign, onCycleDigit, hoverEdit = false, availableWidth, availableHeight, leftRoom = 0, stepsClosed = false, pageMidX, smoothFit = false, onNaturalWidth }: AddSubBoardProps): ReactElement {
   // The digit-count drums sit left of the N1 / N2 tags: the board keeps room for them too (see OperandDrum)
   const hasDrums = !!useContext(DigitDrums);
-  const { rootRef, natural, fit, shift, fitRef, drop } = useAddSubFit({ num1, num2, availableWidth, leftRoom, stepsClosed, pageMidX, onNaturalWidth });
+  const { rootRef, natural, fit, shift, fitRef, drop } = useAddSubFit({ num1, num2, availableWidth, availableHeight, leftRoom, stepsClosed, pageMidX, onNaturalWidth });
   const [result, setResult] = useState<Record<number, ResultDigit>>({});
   const [resultSign, setResultSign] = useState<1 | -1 | null>(null);
   const [currentColumn, setCurrentColumn] = useState(-1);

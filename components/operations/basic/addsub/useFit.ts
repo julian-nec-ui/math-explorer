@@ -5,7 +5,7 @@ import { ADD_MIN_FIT_DESK, ADD_SHIFT_MAX, ADD_EDGE_GAP, ADD_GROW_LEFT_FROM, ADD_
 // Addition / subtraction's size and place on the board area (Julian's rules): the board's natural size, measured; how
 // much it shrinks to fit (`fit`) and how far left of the centre it sits (`shift`), on a desktop, a tablet and a phone,
 // with the steps window open or collapsed
-export function useAddSubFit({ num1, num2, availableWidth, leftRoom, stepsClosed, pageMidX, onNaturalWidth }: { num1: NumberData; num2: NumberData; availableWidth?: number; leftRoom: number; stepsClosed: boolean; pageMidX?: number; onNaturalWidth?: (w: number) => void }) {
+export function useAddSubFit({ num1, num2, availableWidth, availableHeight, leftRoom, stepsClosed, pageMidX, onNaturalWidth }: { num1: NumberData; num2: NumberData; availableWidth?: number; availableHeight?: number; leftRoom: number; stepsClosed: boolean; pageMidX?: number; onNaturalWidth?: (w: number) => void }) {
   // The board's natural size (offsetWidth / offsetHeight: not changed by the scaling, the same in every browser), so the
   // box around it can take the scaled size, and the scale (see ADD_MIN_FIT_DESK)
   const rootRef = useRef<HTMLDivElement>(null);
@@ -86,11 +86,14 @@ export function useAddSubFit({ num1, num2, availableWidth, leftRoom, stepsClosed
   // (held by the N1 / N2 tags: the drums hang to their left, and moving them moves nothing else)
   const anchored = !!natural && leftRoom > 0 && natural.tl != null;
   // (the drums need `extra` more px on the left when the board shrinks: see DrumZoom)
-  const fit = !natural || !availableWidth ? 1
+  const fitW = !natural || !availableWidth ? 1
     : anchored ? Math.max(wide ? ADD_MIN_FIT_DESK : ADD_MIN_FIT_SMALL, Math.min(1, (viewW + room) / Math.max(1, natural.w - (natural.tl ?? 0))))
     : wide ? Math.max(ADD_MIN_FIT_DESK, Math.min(1, (viewW + room) / natural.w, right11 === null ? 1 : (right11 + room) / natural.w))
     // tablet / phone: fit the screen
     : solveFit(natural.dw, extra => Math.max(ADD_MIN_FIT_SMALL, Math.min(1, ((availableWidth ?? 0) + 8) / (natural.w + extra))));
+  // A phone: also as tall as the room above the open steps window, down to 40% (Julian: the sum mustn't run under it)
+  const fitH = natural && phone && availableHeight && natural.h ? Math.max(0.4, Math.min(1, (availableHeight - 4) / natural.h)) : 1;
+  const fit = Math.min(fitW, fitH);
   const W = natural ? natural.w * fit : 0;
   // Steps window collapsed (Julian; desktop, tablet and phone): the numbers (from the first digit to the last) centred
   // on the middle of the page, as far as the room allows (not past 15px after the controls column — on a phone, not
