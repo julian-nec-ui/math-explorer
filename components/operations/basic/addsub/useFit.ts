@@ -84,7 +84,7 @@ export function useAddSubFit({ num1, num2, availableWidth, availableHeight, left
   // the board shrink (from that same left end)
   // (whenever the controls column stands beside the board, md up, steps window open or not: Julian)
   // (held by the N1 / N2 tags: the drums hang to their left, and moving them moves nothing else)
-  const anchored = !!natural && leftRoom > 0 && natural.tl != null;
+  const anchored = !!natural && leftRoom !== 0 && natural.tl != null;
   // (the drums need `extra` more px on the left when the board shrinks: see DrumZoom)
   const fitW = !natural || !availableWidth ? 1
     : anchored ? Math.max(wide ? ADD_MIN_FIT_DESK : ADD_MIN_FIT_SMALL, Math.min(1, (viewW + room) / Math.max(1, natural.w - (natural.tl ?? 0))))

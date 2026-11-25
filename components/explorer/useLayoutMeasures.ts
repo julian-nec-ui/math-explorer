@@ -86,12 +86,7 @@ export function useTimerGap(titleRef: Ref<HTMLHeadingElement>, colRef: Ref<HTMLD
     if (titleRef.current) ro.observe(titleRef.current);
     if (colRef.current) ro.observe(colRef.current);
     window.addEventListener('resize', measure);
-    // A phone: checked every frame too (cheap, and only a change re-renders): what moves the area's top or resizes the
-    // steps window doesn't always resize something observed, and a stale height let the board run under the window
-    let raf = 0;
-    const tick = () => { if (!window.matchMedia('(min-width: 48rem)').matches) measure(); raf = requestAnimationFrame(tick); };
-    raf = requestAnimationFrame(tick);
-    return () => { ro.disconnect(); window.removeEventListener('resize', measure); cancelAnimationFrame(raf); };
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
   }, [activeOp, cell]);
   return timerGap;
 }
@@ -110,28 +105,22 @@ export function usePageRoom(viewRef: Ref<HTMLDivElement>, colRef: Ref<HTMLDivEle
       const contentLeft = view.getBoundingClientRect().left + parseFloat(getComputedStyle(view).paddingLeft);
       setPageMidX(Math.round((document.documentElement.clientWidth / 2 - contentLeft) * (REM_PX / rootPx) * 10) / 10);
       if (getComputedStyle(col).position !== 'absolute') { setLeftRoom(0); return; }
-      // The room up to where the N1 / N2 tags start: 66 board px (they grow with the root font size) less 1px after the controls
-      // column's right edge. The boards hold the tags
-      // there (see FitBoard / useAddSubFit), so the numbers never move, and the digit-count drums hang to the left of
-      // the tags (moving them doesn't move anything else, Julian). They may reach over the column's right end: the
-      // buttons are below the operands
-      // Measured from a column of the same width in every operation (8rem: INTEGER / FLOAT's width; division's is wider),
-      // so the drums and the numbers start at the same place everywhere (Julian). The buttons sit below the operands
-      // now (see ControlsColumn), so a wider column doesn't get in their way
-      const colRight = col.getBoundingClientRect().left + 8 * rootPx;
-      setLeftRoom(Math.max(0, Math.floor((contentLeft - colRight + 1) * (REM_PX / rootPx) - 66)));
+      // The room up to where the N1 / N2 tags start. The boards hold the tags there (see FitBoard / useAddSubFit), so the
+      // numbers never move, and the digit-count drums hang to the left of the tags (moving them moves nothing else)
+      // (Julian, tablet / desktop) The drums start 10px after the right edge of the column's buttons (FLOAT, the step
+      // delay's drum, Pause: the column's right edge + the 6px they reach out, EDGE_3), in each operation; the N1 / N2
+      // tags 71 board px after that (15px gap + the 56px drum)
+      const buttonsRight = col.getBoundingClientRect().right + 6;
+      // (may be negative: a wide column on a narrow screen; 0 means "no column beside the board", so never exactly 0)
+      const room = Math.round((contentLeft - buttonsRight - 10) * (REM_PX / rootPx) - 71);
+      setLeftRoom(room === 0 ? 0.01 : room);
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(view);
     ro.observe(col);
     window.addEventListener('resize', measure);
-    // A phone: checked every frame too (cheap, and only a change re-renders): what moves the area's top or resizes the
-    // steps window doesn't always resize something observed, and a stale height let the board run under the window
-    let raf = 0;
-    const tick = () => { if (!window.matchMedia('(min-width: 48rem)').matches) measure(); raf = requestAnimationFrame(tick); };
-    raf = requestAnimationFrame(tick);
-    return () => { ro.disconnect(); window.removeEventListener('resize', measure); cancelAnimationFrame(raf); };
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
   }, []);
   return { leftRoom, pageMidX };
 }

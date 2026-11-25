@@ -99,7 +99,7 @@ export default function FitBoard({ children, availableWidth, leftRoom = 0, steps
   // Held by its left end (the digit-count drums) whenever the controls column stands beside the board (md up: it gives
   // `leftRoom`), steps window open or not (Julian: the drums never move while digits change)
   const room = leftRoom;
-  const anchored = leftRoom > 0 && natural?.tl != null;
+  const anchored = leftRoom !== 0 && natural?.tl != null;
   const tl = natural?.tl ?? 0;
   // The drawn part: from its left edge to the board's right edge
   const Wn = natural ? Math.max(1, natural.w - natural.cl) : 0;

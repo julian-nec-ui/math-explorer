@@ -47,6 +47,6 @@ export function BoardView({ activeOp, framed, board, boardViewW, viewHeight, smo
     );
   }
   return framed
-    ? <FramedBoard viewW={boardViewW} smooth={smoothFit} onNaturalWidth={onNaturalWidth} anchored={leftRoom > 0 || phone}>{board}</FramedBoard>
+    ? <FramedBoard viewW={boardViewW} smooth={smoothFit} onNaturalWidth={onNaturalWidth} anchored={leftRoom !== 0 || phone}>{board}</FramedBoard>
     : <>{board}</>;
 }

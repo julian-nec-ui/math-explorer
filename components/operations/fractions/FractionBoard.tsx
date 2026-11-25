@@ -15,7 +15,7 @@ const subscribeMd = (cb: () => void) => {
 let lastFit = 1;
 const FIT_MS = 600;
 
-export default function FractionBoard({ num1, num2, run, onStatus, onDone, renderSign, hoverEdit = false, availableWidth, availableHeight, fraction, onCycleFractionDigit }: FractionBoardProps): ReactElement {
+export default function FractionBoard({ num1, num2, run, onStatus, onDone, renderSign, hoverEdit = false, availableWidth, availableHeight, leftRoom = 0, fraction, onCycleFractionDigit }: FractionBoardProps): ReactElement {
   const f1: Frac = { n: numberValue(fraction.n1), d: numberValue(fraction.d1), s: num1.sign };
   const f2: Frac = { n: numberValue(fraction.n2), d: numberValue(fraction.d2), s: num2.sign };
   const ready = (['n1', 'd1', 'n2', 'd2'] as const).every(k => fraction[k].digits.length > 0);
@@ -118,7 +118,8 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
     a.raf = requestAnimationFrame(step);
   };
   useEffect(() => () => cancelAnimationFrame(fitAnim.current.raf), []);
-  // From md up (Julian): the fractions start 6.0625rem in from the board area's left edge and their digit-count drums
+  // From md up (Julian): the fractions' digit-count drums start 10px after the controls column's buttons, as in the
+  // other operations (leftRoom: the room to where the N1 / N2 tags would start, 71 board px after the drums); the drums
   // stay put (place and size: their own zoom undoes the board's, see drumZoom); the numbers grow to the right, and the
   // board only shrinks when it would reach the steps window (3px before it), as in addition / subtraction
   // (read at once, not after the first paint: the board is made anew for every new problem, and one frame without the
@@ -206,7 +207,7 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
     <div className="flex flex-col items-start">
     {/* Zoomed to fit (see `fit`), and at most as wide as the board area, so the rows wrap (the second fraction under
         the first) instead of scrolling */}
-    <div ref={contentRef} className="flex flex-col items-start" style={{ zoom: fit, marginLeft: mdUp ? `${6.0625 / fit}rem` : `${-(edge + 4) / 16 / fit}rem`, maxWidth: mdUp ? undefined : availableWidth ? Math.max(320, availableWidth - 16) / fit : undefined }}>
+    <div ref={contentRef} className="flex flex-col items-start" style={{ zoom: fit, marginLeft: mdUp ? `${(leftRoom !== 0 ? -(leftRoom + 71) - 3.5 : 97) / 16 / fit}rem` : `${-(edge + 4) / 16 / fit}rem`, maxWidth: mdUp ? undefined : availableWidth ? Math.max(320, availableWidth - 16) / fit : undefined }}>
       <div data-expr className="flex flex-wrap items-center justify-start gap-x-5 gap-y-4">
         {/* The problem (Julian): the second fraction under the first, both starting at the same place, each with its
             sign in round brackets and its digit-count drums on its left (half as far from the bracket as before); the
