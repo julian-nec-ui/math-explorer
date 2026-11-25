@@ -90,9 +90,13 @@ export function DrumLayer({ host }: { host: RefObject<HTMLDivElement | null> }):
   // on a touch outside it. `grow`: each drum's extra scale now (eased towards its target every frame)
   const phone = usePhone();
   const grow = useRef<Partial<Record<FracPart, { now: number; target: number; timer: number }>>>({});
+  // (Julian) with many digits (drums drawn at their smallest) a touched drum grows to at least 30% more than that
+  // smallest size (80% of normal, see drumScaleFor), so it is easy to turn
+  const shown = useRef<Partial<Record<FracPart, number>>>({});
   const touch = (part: FracPart) => {
     const g = grow.current[part] ?? (grow.current[part] = { now: 1, target: 1, timer: 0 });
-    g.target = 1.2;
+    const s = shown.current[part] ?? 1;
+    g.target = Math.max(1.2, (1.3 * 0.8) / s);
     window.clearTimeout(g.timer);
     g.timer = window.setTimeout(() => { g.target = 1; }, 3000);
   };
@@ -138,6 +142,7 @@ export function DrumLayer({ host }: { host: RefObject<HTMLDivElement | null> }):
             if (k < 1) r = new DOMRect(r0.right - r0.width * k, r0.top + (r0.height * (1 - k)) / 2, r0.width * k, r0.height * k);
           }
           const scale = r.width / ((DRUM_W / 16) * rootPx);
+          shown.current[part as FracPart] = scale;
           const g = grow.current[part as FracPart];
           if (g) g.now += (g.target - g.now) * 0.25;
           const extra = g && Math.abs(g.now - 1) > 0.001 ? g.now : 1;

@@ -582,3 +582,4 @@ Totul arată și se comportă exact ca înainte (verificat: HTML-ul paginii iden
 - Adunare/scădere pe telefon: rândul de carry e cu 8px mai aproape de N1 (`max-md:-mb-2`), deci numerele sunt mai aproape de Explain to Me.
 - Pe telefon: 4px între step delay, Pause, Prev/Next și banda Explain to Me.
 - Pe telefon, minimum 2px între două rotițe una sub alta (DrumLayer): când s-ar atinge, se desenează mai mici, față de mijlocul lor, iar marginea dreaptă rămâne pe loc.
+- Pe telefon, o rotiță atinsă crește de 1,2 ori, dar ajunge cel puțin la 130% din mărimea ei minimă (adică 1,3 × 80% = 104% din normal), ca să fie ușor de rotit și când sunt mulți digiți.
