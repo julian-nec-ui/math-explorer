@@ -1,5 +1,5 @@
 import type { Dispatch, RefObject, SetStateAction } from 'react';
-import { paced, pausableTimeout, HOP_MS, doneMessage, formatNumber, intLength, CARRY_CHIP, type NumberData, type BadgeKind } from '../../../math/shared';
+import { nav, paced, pausableTimeout, HOP_MS, doneMessage, formatNumber, intLength, CARRY_CHIP, type NumberData, type BadgeKind } from '../../../math/shared';
 import { type Badge, type ExprFly, FLIGHT_MS, type FlightData, type ResultDigit, type RewrittenView, compareMagnitude, digitAt, toColumns } from './model';
 
 // What the explanation works with: the board's props, state setters, refs and measurements
@@ -47,15 +47,69 @@ export function runAddSub({ run, num1, num2, op, setView, row1Ref, row2Ref, setS
   if (!run) return;
   let alive = true;
   const runId = Date.now();
+
+  // Prev (Julian): every step can be played backwards, the way it went forwards. What the board shows is kept here
+  // too (`shadow`, as the state setters below are called); where each step ended (`ends`, taken at its last pause:
+  // where Prev / Next stop) is what a step goes back to, after its own backward moves (`extras`: the digits flying
+  // back up, the carry flying back, the result digit fading...). See nav.undo in timing
+  type Snap = Record<string, unknown>;
+  const shadow: Snap = { result: {}, resultSign: null, currentColumn: -1, computedColumns: new Set<number>(), badges: [], opMark: null, zero: null, fadingCols: new Set<number>(), flight: null, sumChip: null, expr: null, hop: null, crossed: {}, crossedFading: false, view: null, swapping: false, swapDist: 0, swapMs: 700 };
+  const real: Record<string, (v: unknown) => void> = {};
+  const track = <T,>(name: string, set: Dispatch<SetStateAction<T>>): Dispatch<SetStateAction<T>> => {
+    real[name] = set as (v: unknown) => void;
+    return (v: SetStateAction<T>) => {
+      const nv = typeof v === 'function' ? (v as (p: T) => T)(shadow[name] as T) : v;
+      shadow[name] = nv;
+      set(nv);
+    };
+  };
+  setResult = track('result', setResult); setResultSign = track('resultSign', setResultSign);
+  setCurrentColumn = track('currentColumn', setCurrentColumn); setComputedColumns = track('computedColumns', setComputedColumns);
+  setBadges = track('badges', setBadges); setOpMark = track('opMark', setOpMark); setZero = track('zero', setZero);
+  setFadingCols = track('fadingCols', setFadingCols); setFlight = track('flight', setFlight); setSumChip = track('sumChip', setSumChip);
+  setExpr = track('expr', setExpr); setHop = track('hop', setHop); setCrossed = track('crossed', setCrossed);
+  setCrossedFading = track('crossedFading', setCrossedFading); setView = track('view', setView); setSwapping = track('swapping', setSwapping);
+  setSwapDist = track('swapDist', setSwapDist); setSwapMs = track('swapMs', setSwapMs);
+  const restore = (snap: Snap) => { for (const k of Object.keys(snap)) { shadow[k] = snap[k]; real[k]?.(snap[k]); } };
+  const sleep = (ms: number) => new Promise<void>(r => window.setTimeout(r, ms));
+  const fadeOut = (el: Element | null | undefined, ms = 450) => { el?.animate([{ opacity: 1, scale: '1' }, { opacity: 0, scale: '0.7' }], { duration: ms, easing: 'ease-in', fill: 'forwards' }); };
+  let lastSnap: Snap = { ...shadow };
+  let curStep = 0;
+  const ends: Record<number, Snap> = {};
+  const extras: Record<number, (before: Snap) => Promise<void>> = {};
+  const undoExtra = (fn: (before: Snap) => Promise<void>) => { extras[curStep] = fn; };
+  // (a board made again — Prev — ends this run at once, even before React unmounts it)
+  const myGen = nav.gen;
+  const say = (text: string) => {
+    if (nav.gen !== myGen) { alive = false; return; }
+    ends[curStep] = lastSnap;
+    if (!text.startsWith('Done')) {
+      curStep++;
+      const k = curStep, before = ends[k - 1];
+      nav.undo[k] = async () => {
+        const x = extras[k];
+        if (x) await x(before);
+        restore(before);
+        await sleep(750);
+      };
+    } else {
+      const before = ends[curStep];
+      nav.undoDone = async () => { restore(before); await sleep(750); };
+    }
+    onStatus(text);
+  };
   const a = num1, b = num2;
   (async () => {
     // React's strict mode (dev) mounts, cleans up and mounts again: let the throwaway run end here,
     // before it announces its first step (otherwise that step shows twice)
     await Promise.resolve();
     if (!alive) return;
-    const wait = (ms: number) => new Promise<boolean>(resolve => {
-      pausableTimeout(() => resolve(alive), paced(ms));
-    });
+    const wait = (ms: number) => {
+      lastSnap = { ...shadow };
+      return new Promise<boolean>(resolve => {
+        pausableTimeout(() => resolve(alive), paced(ms));
+      });
+    };
 
     const dec = Math.max(a.decimalCount, b.decimalCount);
     const int = Math.max(intLength(a), intLength(b), 1);
@@ -110,7 +164,7 @@ export function runAddSub({ run, num1, num2, op, setView, row1Ref, row2Ref, setS
       top = mag(a); bottom = mag(b); outerMinus = signA < 0;
       if (op === 'subtraction' || signA < 0) {
         const sum = `${ea} + ${eb}`;
-        onStatus(signA < 0
+        say(signA < 0
           ? `${original} = −(${sum}): both parts are negative, so we add the numbers and keep the minus in front. We use carries.`
           : `${original} = ${sum}: subtracting a negative number means adding it. We use carries.`);
         putView({ top, bottom, op: 'addition', outerMinus });
@@ -123,7 +177,7 @@ export function runAddSub({ run, num1, num2, op, setView, row1Ref, row2Ref, setS
       top = mag(posFirst ? a : b); bottom = mag(posFirst ? b : a); outerMinus = false;
       const posText = fmt(top), negText = fmt(bottom);
       if (!(op === 'subtraction' && signA > 0)) {
-        onStatus(op === 'addition'
+        say(op === 'addition'
           ? `${original} = ${posText} − ${negText}: adding a negative number means subtracting it. We put the positive number, ${posText}, on top.`
           : `${original} = ${posText} − ${negText}: subtracting a negative number means adding it, so we put the positive number, ${posText}, on top and subtract ${negText}.`);
         if (posFirst) {
@@ -139,7 +193,7 @@ export function runAddSub({ run, num1, num2, op, setView, row1Ref, row2Ref, setS
       // A larger number can't be taken from a smaller one column by column, so subtract the other way round
       const width = Math.max(intLength(a), intLength(b), 1), decs = Math.max(a.decimalCount, b.decimalCount);
       if (compareMagnitude(toColumns(top, width, decs), toColumns(bottom, width, decs)) < 0) {
-        onStatus(`${negText} is larger than ${posText}, so we swap them and subtract the other way round: ${posText} − ${negText} = −(${negText} − ${posText}). The minus stays in front of the result.`);
+        say(`${negText} is larger than ${posText}, so we swap them and subtract the other way round: ${posText} − ${negText} = −(${negText} − ${posText}). The minus stays in front of the result.`);
         // (a plain positive subtraction like 3 − 8 has no rewrite yet: show it as entered before the swap)
         putView({ top, bottom, op: 'subtraction', outerMinus: false });
         [top, bottom] = [bottom, top];
@@ -215,6 +269,13 @@ export function runAddSub({ run, num1, num2, op, setView, row1Ref, row2Ref, setS
       setExpr({ ...base, fly });
       await frames();
       setExpr({ ...base, fly: fly.map((f, i) => ({ ...f, to: to[i] ?? f.from })) });
+      // backwards: the digits and the sign fly back up to the column
+      undoExtra(async () => {
+        setExpr({ ...base, fly: fly.map((f, i) => ({ ...f, to: to[i] ?? f.from })) });
+        await frames();
+        setExpr({ ...base, fly });
+        await sleep(750);
+      });
       if (!(await wait(700))) return false;
       setExpr({ ...base, shown: true });
       if (!(await wait(300))) return false;
@@ -241,6 +302,13 @@ export function runAddSub({ run, num1, num2, op, setView, row1Ref, row2Ref, setS
       setExpr({ ...base, fly: [chip] });
       await frames();
       setExpr({ ...base, fly: [{ ...chip, to }] });
+      // backwards: the carry flies back to its corner
+      undoExtra(async () => {
+        setExpr({ ...base, fly: [{ ...chip, to }] });
+        await frames();
+        setExpr({ ...base, fly: [chip] });
+        await sleep(950);
+      });
       if (!(await wait(900))) return false;
       setExpr({ ...base, fly: [{ ...chip, to }], landed: true, eq: true, result: String(s + c) });
       return wait(1300);
@@ -262,6 +330,11 @@ export function runAddSub({ run, num1, num2, op, setView, row1Ref, row2Ref, setS
       moveIncomingBadge(col);
       const missing: 'top' | 'bottom' | null = !digitAt(top, col, dec) ? 'top' : !digitAt(bottom, col, dec) ? 'bottom' : null;
       if (missing) setZero({ col, row: missing, sub: subtract, fading: false });
+      // (Julian) each part of a column is its own step (Prev / Next stop at each): the column lit with its sign, the
+      // calculation coming down, the carry added, the borrow, the digit written
+      say(!subtract
+        ? `Next column: ${t} + ${btm}${carry ? ', and the carry 1' : ''}`
+        : `Next column: ${t} − ${btm}${carry ? `, and ${t} lent 1` : ''}`);
       if (!(await wait(col === 0 && !rewritten ? 1000 * START : 1000))) return;
 
       // Subtraction: this digit lent 1 to the column on the right. The red mark drops onto it, and the digit is
@@ -272,11 +345,18 @@ export function runAddSub({ run, num1, num2, op, setView, row1Ref, row2Ref, setS
           setBadges(prev => prev.map(x => (x.side === 'right' && !x.fading ? { ...x, fading: true } : x)));
           dropFaded();
           setHop({ x0: sl.right - 11, y0: sl.bottom - 1, x1: to.left + to.width / 2, y1: to.top + to.height / 2, value: '−1', kind: 'borrow', key: `m${runId}-${col}` });
+          // backwards: the −1 goes back up to its corner
+          undoExtra(async (before) => {
+            setCrossed(before.crossed as Record<number, string>);
+            setHop({ x0: to.left + to.width / 2, y0: to.top + to.height / 2, x1: sl.right - 11, y1: sl.bottom - 1, value: '−1', kind: 'borrow', key: `u${runId}-${col}-${Date.now()}` });
+            await sleep(HOP_MS);
+            setHop(null);
+          });
           if (!(await wait(HOP_MS))) return;
           setHop(null);
           if (t > 0) {
             setCrossed(prev => ({ ...prev, [col]: String(t - 1) }));
-            onStatus(`${t} lent 1 to the column on the right, so it is now ${t - 1}.`);
+            say(`${t} lent 1 to the column on the right, so it is now ${t - 1}.`);
             if (!(await wait(1000))) return;
           }
         }
@@ -287,16 +367,12 @@ export function runAddSub({ run, num1, num2, op, setView, row1Ref, row2Ref, setS
         const sum = t + btm + carry;
         digit = sum % 10;
         next = sum >= 10 ? 1 : 0;
-        onStatus(`${t} + ${btm}${carry ? ' + 1' : ''} = ${sum} → write ${digit}${next ? ', carry 1' : ''}`);
       } else {
         const raw = t - btm - carry;
         next = raw < 0 ? 1 : 0;
         digit = raw < 0 ? raw + 10 : raw;
-        const left = carry ? `${t} − 1` : `${t}`;
-        onStatus(next
-          ? `${left} is less than ${btm} → borrow 10: ${t + 10 - carry} − ${btm} = ${digit}`
-          : `${left} − ${btm} = ${digit}`);
       }
+      const left = carry ? `${t} − 1` : `${t}`;
 
       // The calculation on the result row (Julian). Subtraction with a borrow: the borrow is done first, up in the column
       // (below), and the calculation comes down after it with the borrowed ten
@@ -308,10 +384,15 @@ export function runAddSub({ run, num1, num2, op, setView, row1Ref, row2Ref, setS
           centre(missing2 === 'bottom' ? zeroRef.current : bottomRefs.current[col]),
         ];
         if (!subtract) {
+          say(`${t} + ${btm} = ${t + btm}`);
           if (!(await showCalc(col, String(t), '+', String(btm), String(t + btm), from))) return;
-          if (carry && !(await addCarry(col, t + btm, carry))) return;
+          if (carry) {
+            say(`${t + btm} + the carry 1 = ${t + btm + carry}`);
+            if (!(await addCarry(col, t + btm, carry))) return;
+          }
           setExpr(null);
         } else if (!next) {
+          say(`${left} − ${btm} = ${digit}`);
           if (!(await showCalc(col, String(t - carry), '−', String(btm), String(digit), from))) return;
           setExpr(null);
         }
@@ -325,8 +406,11 @@ export function runAddSub({ run, num1, num2, op, setView, row1Ref, row2Ref, setS
         // The whole sum (e.g. 12) appears where the result digit goes
         const c = cellEl.getBoundingClientRect(), sl = slotEl.getBoundingClientRect();
         const x = c.left + c.width / 2, y = c.top + c.height / 2;
+        say(`${t + btm + carry} goes on the result row: ${digit} is written, the 1 is carried`);
         setSumChip({ x, y, text: String(t + btm + carry), lead: 1, kind: 'carry', splitting: false });
+        undoExtra(async () => { setSumChip(sc => (sc ? { ...sc, splitting: true } : sc)); await sleep(450); });
         if (!(await wait(900))) return;
+        say(`Write ${digit}, carry 1 up to the next column`);
         // It splits: the units become the result digit, the tens jump to this column's carry corner
         setSumChip(prev => (prev ? { ...prev, splitting: true } : prev));
         res[col] = { value: digit, id: `r${runId}-${col}` };
@@ -334,7 +418,16 @@ export function runAddSub({ run, num1, num2, op, setView, row1Ref, row2Ref, setS
         setComputedColumns(prev => new Set(prev).add(col));
         // to the centre of the carry chip's place: 1px in from the slot's left, its bottom 9px under the slot (screen px)
         const kp = (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) / 16;
-        setHop({ x0: x - 0.3 * c.width, y0: y, x1: sl.left + (1 + CARRY_CHIP / 2) * kp, y1: sl.bottom + (9 - CARRY_CHIP / 2) * kp, value: next, kind: 'carry', key: `h${runId}-${col}` });
+        const hx0 = x - 0.3 * c.width, hy0 = y, hx1 = sl.left + (1 + CARRY_CHIP / 2) * kp, hy1 = sl.bottom + (9 - CARRY_CHIP / 2) * kp;
+        setHop({ x0: hx0, y0: hy0, x1: hx1, y1: hy1, value: next, kind: 'carry', key: `h${runId}-${col}` });
+        // backwards: the carry jumps back from its corner into the sum, the digit written fades
+        undoExtra(async (before) => {
+          setBadges(before.badges as Badge[]);
+          fadeOut(cellEl.firstElementChild);
+          setHop({ x0: hx1, y0: hy1, x1: hx0, y1: hy0, value: next, kind: 'carry', key: `u${runId}-${col}-${Date.now()}` });
+          await sleep(HOP_MS);
+          setHop(null);
+        });
         if (!(await wait(HOP_MS))) return;
         setSumChip(null);
         setHop(null);
@@ -346,7 +439,16 @@ export function runAddSub({ run, num1, num2, op, setView, row1Ref, row2Ref, setS
         const from = topRefs.current[col + 1]!.getBoundingClientRect(), to = topRefs.current[col]!.getBoundingClientRect();
         // (just above the digit, so the digit itself stays readable)
         const x = to.left + to.width / 2, y = to.top - 16;
+        say(`${left} is less than ${btm} → borrow 10 from the left: ${t - carry} becomes ${t - carry + 10}`);
         setHop({ x0: from.left + from.width / 2, y0: from.top + from.height / 2, x1: x, y1: y, value: 10, kind: 'borrow', key: `h${runId}-${col}` });
+        // backwards: the ten goes back to the digit on the left
+        undoExtra(async (before) => {
+          setSumChip(null);
+          setCrossed(before.crossed as Record<number, string>);
+          setHop({ x0: x, y0: y, x1: from.left + from.width / 2, y1: from.top + from.height / 2, value: 10, kind: 'borrow', key: `u${runId}-${col}-${Date.now()}` });
+          await sleep(HOP_MS);
+          setHop(null);
+        });
         if (!(await wait(HOP_MS))) return;
         setHop(null);
         const withTen = String(t - carry + 10);
@@ -359,8 +461,11 @@ export function runAddSub({ run, num1, num2, op, setView, row1Ref, row2Ref, setS
         if (!(await wait(600))) return;
         setSumChip(null);
         // Then the calculation comes down with the borrowed ten (Julian): "13 − 7 =", 6
+        say(`${withTen} − ${btm} = ${digit}`);
         if (!(await showCalc(col, withTen, '−', String(btm), String(digit), calcFrom))) return;
         setExpr(null);
+        say(`Write ${digit}`);
+        undoExtra(async () => { fadeOut(resultRefs.current[col]?.firstElementChild); await sleep(450); });
         res[col] = { value: digit, id: `r${runId}-${col}` };
         setResult({ ...res });
         setComputedColumns(prev => new Set(prev).add(col));
@@ -370,6 +475,8 @@ export function runAddSub({ run, num1, num2, op, setView, row1Ref, row2Ref, setS
         addBadge(col, carry);
         if (!(await wait(900))) return;
       } else {
+        say(`Write ${digit}${next && !subtract ? ', carry 1' : ''}`);
+        undoExtra(async () => { fadeOut(resultRefs.current[col]?.firstElementChild); await sleep(450); });
         res[col] = { value: digit, id: `r${runId}-${col}` };
         setResult({ ...res });
         setComputedColumns(prev => new Set(prev).add(col));
@@ -387,7 +494,7 @@ export function runAddSub({ run, num1, num2, op, setView, row1Ref, row2Ref, setS
 
     const lastCol = carry ? len : len - 1;
     if (carry) {
-      onStatus('The last carry moves left, drops below the line and becomes the first digit of the result.');
+      say('The last carry moves left, drops below the line and becomes the first digit of the result.');
       const startEl = carryRefs.current[len - 1];
       const endEl = resultRefs.current[len];
       if (startEl && endEl) {
@@ -419,7 +526,7 @@ export function runAddSub({ run, num1, num2, op, setView, row1Ref, row2Ref, setS
       if (res[c].value === 0) fading.add(c); else break;
     }
     if (fading.size > 0) {
-      onStatus('Leading zeros are removed.');
+      say('Leading zeros are removed.');
       setFadingCols(fading);
       if (!(await wait(1000))) return;
       fading.forEach(c => { delete res[c]; });
@@ -437,7 +544,7 @@ export function runAddSub({ run, num1, num2, op, setView, row1Ref, row2Ref, setS
     const worked = shown as RewrittenView | null;
     if (worked) {
       const plain = formatNumber(resultDigits, dec, 1);
-      onStatus(`So ${fmt(worked.top)} ${worked.op === 'addition' ? '+' : '−'} ${fmt(worked.bottom)} = ${plain}${outerMinus && !allZero ? `, and with the minus in front the result is ${resultText}` : ''}.`);
+      say(`So ${fmt(worked.top)} ${worked.op === 'addition' ? '+' : '−'} ${fmt(worked.bottom)} = ${plain}${outerMinus && !allZero ? `, and with the minus in front the result is ${resultText}` : ''}.`);
       if (!(await wait(2000))) return;
       if (rowsSwapped) {
         if (!(await swapRows(null))) return;
@@ -445,10 +552,10 @@ export function runAddSub({ run, num1, num2, op, setView, row1Ref, row2Ref, setS
         putView(null);
         if (!(await wait(600))) return;
       }
-      onStatus(`So ${original} = ${resultText}.`);
+      say(`So ${original} = ${resultText}.`);
       if (!(await wait(1200))) return;
     }
-    onStatus(doneMessage(resultText));
+    say(doneMessage(resultText));
     onDone();
 
   })();

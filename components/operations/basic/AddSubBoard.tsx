@@ -433,7 +433,7 @@ export default function AddSubBoard({ op, num1, num2, run, onStatus, onDone, ren
       </div>
     </div>
     </div>
-    {typeof document !== 'undefined' && createPortal(overlays, document.body)}
+    {typeof document !== 'undefined' && createPortal(<div data-mx-overlays>{overlays}</div>, document.body)}
     </DrumZoom.Provider>
   );
 }

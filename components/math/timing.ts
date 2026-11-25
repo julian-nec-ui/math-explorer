@@ -38,9 +38,49 @@ const arm = (t: PausableTimer, ms: number) => {
     t.id = window.setTimeout(() => { if (t.gen === g) t.fire(); }, ms);
   }
 };
+// Next plays at the normal speed up to its place (a target without seek); Prev runs again without waiting (seek).
+// Where an explanation is, for Prev / Next (Julian: a step is shown whole — its last pause running — before the next
+// one starts): the step announced (`step`), the board's pauses counted (`fired`, `base`: as many when it was announced,
+// `created`: made since), and how many pauses each step made (`perStep`, learnt as the explanation runs). A place is
+// { step, fired }: that step, with `fired` of its pauses over, the next one just made. `target`: where a seek stops
+// (`onStop`). `gen`: a new board's run (the old board's pauses no longer count)
+export interface NavPlace { step: number; fired: number }
+export const nav = {
+  gen: 0, step: 0, base: 0, fired: 0, created: 0,
+  perStep: [] as number[],
+  target: null as NavPlace | null,
+  onStop: null as (() => void) | null,
+  // Prev (Julian: backwards the way it went forwards): what the board's script registers to play a step backwards,
+  // from where that step is shown whole to where the step before was (`undoDone`: from the end to the last step)
+  undo: {} as Record<number, () => Promise<void>>,
+  undoDone: null as (() => Promise<void>) | null,
+};
+// (for checking in the browser's console)
+if (typeof window !== 'undefined') (window as unknown as { __mxNav: typeof nav }).__mxNav = nav;
+// (the old board's pauses are dropped: its explanation must not go on while the new board is made — its script
+// simply never wakes up again)
+export const navReset = (): void => { timers.forEach(t => { window.clearTimeout(t.id); t.gen++; }); timers.clear(); nav.gen++; nav.step = 0; nav.base = 0; nav.fired = 0; nav.created = 0; nav.target = null; nav.undo = {}; nav.undoDone = null; };
+// The page, at every numbered step
+export const navAnnounce = (step: number): void => {
+  nav.perStep[nav.step] = nav.created;
+  nav.step = step; nav.base = nav.fired; nav.created = 0;
+  // (a step with no pause of its own stops where it is announced)
+  if (nav.target && nav.target.step === step && nav.target.fired < 0) { nav.target = null; nav.onStop?.(); }
+};
+// The page, when the explanation is finished (the last step's pauses)
+export const navFinish = (): void => { nav.perStep[nav.step] = nav.created; };
+// The place where a step is shown whole: all its pauses over but the last (-1: none, stop where it is announced)
+export const navEnd = (step: number): NavPlace => ({ step, fired: (nav.perStep[step] ?? 0) - 1 });
+export const navHere = (): NavPlace => ({ step: nav.step, fired: nav.fired - nav.base });
+
 export const pausableTimeout = (fn: () => void, ms: number): void => {
+  // Prev / Next: the place wanted is reached when this pause is made, so everything stops here (it waits, paused)
+  const tg = nav.target;
+  if (tg && tg.fired >= 0 && tg.step === nav.step && nav.fired - nav.base === tg.fired) { nav.target = null; nav.onStop?.(); }
+  nav.created++;
+  const g0 = nav.gen;
   const t: PausableTimer = { fire: fn, due: performance.now() + ms, remaining: ms, id: 0, gen: 0 };
-  t.fire = () => { timers.delete(t); fn(); };
+  t.fire = () => { timers.delete(t); if (g0 === nav.gen) nav.fired++; fn(); };
   timers.add(t);
   if (!pauseState.paused) arm(t, ms);
 };

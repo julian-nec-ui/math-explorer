@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { pace, pauseAll, resumeAll, seekStart, seekEnd } from '../math/shared';
+import { pace, pauseAll, resumeAll, seekStart, seekEnd, nav, navReset, navAnnounce, navFinish, navEnd, navHere, type NavPlace } from '../math/shared';
 import { useElapsedTimer } from './useElapsedTimer';
 
 // The explanation under way: its steps (numbered as they come), the status line, running / paused, the board's key
@@ -19,17 +19,72 @@ export function useExplanation() {
   // Pause / Resume of a running explanation (see pauseAll in shared)
   const [paused, setPaused] = useState(false);
   const { elapsed, timerStart, timerHold, timerGo, timerReset, timerSet } = useElapsedTimer();
-  // Prev / Next (Julian): the step to stop at while the explanation runs again / on without waiting (null: not seeking)
-  const seekTarget = useRef<number | null>(null);
+  // Prev / Next (Julian): while the explanation runs again / on without waiting to a place (see nav in timing)
   const [seeking, setSeeking] = useState(false);
+  const seekingRef = useRef(false);
+  const stopSeek = () => { nav.target = null; nav.onStop = null; seekingRef.current = false; seekEnd(); setSeeking(false); };
+  // (there: everything stops, paused). `fast`: without waiting (Prev, under a still copy of the board); otherwise at
+  // the normal speed (Next: the way it goes forwards)
+  const coverRef = useRef<((fade: boolean) => void) | null>(null);
+  const seekTo = (place: NavPlace | null, fast: boolean, fadeCover = false) => {
+    nav.target = place;
+    nav.onStop = () => { stopSeek(); pauseAll(); setPaused(true); uncover(fadeCover); };
+    seekingRef.current = true;
+    setSeeking(true);
+    if (fast) seekStart();
+  };
+  const uncover = (fade: boolean) => { const c = coverRef.current; coverRef.current = null; c?.(fade); };
+  // A still copy of the board area and its overlays, over them, while the board is made again underneath
+  const makeCover = () => {
+    uncover(false);
+    const area = document.querySelector<HTMLElement>('.steps-scroll');
+    if (!area) return;
+    const r = area.getBoundingClientRect();
+    const wrap = document.createElement('div');
+    wrap.className = 'mx-cover-clone';
+    Object.assign(wrap.style, { position: 'fixed', left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, zIndex: '5', overflow: 'hidden' });
+    const copy = area.cloneNode(true) as HTMLElement;
+    Object.assign(copy.style, { width: '100%', height: '100%', margin: '0' });
+    wrap.appendChild(copy);
+    const parts: HTMLElement[] = [wrap];
+    document.querySelectorAll('[data-mx-overlays]').forEach(o => {
+      const oc = o.cloneNode(true) as HTMLElement;
+      oc.removeAttribute('data-mx-overlays');
+      oc.classList.add('mx-cover-clone');
+      parts.push(oc);
+    });
+    parts.forEach(p => document.body.appendChild(p));
+    copy.scrollTop = area.scrollTop; copy.scrollLeft = area.scrollLeft;
+    document.documentElement.classList.add('mx-covered');
+    coverRef.current = (fade: boolean) => {
+      const done = () => parts.forEach(p => p.remove());
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        document.documentElement.classList.remove('mx-covered');
+        if (!fade) { done(); return; }
+        parts.forEach(p => p.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 450, easing: 'ease-in-out', fill: 'forwards' }));
+        window.setTimeout(done, 470);
+      }));
+    };
+  };
   // Prev from the first step (Julian): back to the very beginning, the board as before Explain to Me (nothing lit,
   // no work), still paused; Next (or Resume) starts the explanation from there
   const [atStart, setAtStart] = useState(false);
+  // How far the explanation has really gone (Julian): Next only goes back over steps already seen, up to there (the
+  // last step reached, and whether it was finished); at that point there is nothing ahead yet, so Next is off
+  // (`live`: where it was paused in its last step, when not finished)
+  type Frontier = { step: number; done: boolean; live: NavPlace | null };
+  const frontierRef = useRef<Frontier>({ step: 0, done: false, live: null });
+  const [frontier, setFrontierState] = useState<Frontier>({ step: 0, done: false, live: null });
+  const setFrontier = (f: Frontier) => { frontierRef.current = f; setFrontierState(f); };
   const runFromStart = () => { setAtStart(false); setBoardKey(k => k + 1); setBoardRun(true); };
   const togglePause = () => {
     if (!isAnimating || seeking) return;
     if (paused && atStart) { setPaused(false); timerGo(); runFromStart(); return; }
-    if (paused) { resumeAll(); setPaused(false); timerGo(); } else { pauseAll(); setPaused(true); timerHold(); }
+    if (paused) { resumeAll(); setPaused(false); timerGo(); return; }
+    pauseAll(); setPaused(true); timerHold();
+    // paused in the furthest step: Next will come back exactly here
+    const f = frontierRef.current;
+    if (!f.done && nav.step === f.step) setFrontier({ ...f, live: navHere() });
   };
   const [boardRun, setBoardRun] = useState(false);
 
@@ -42,15 +97,9 @@ export function useExplanation() {
     let line = text;
     if (!text.startsWith('Done')) {
       stepRef.current += 1;
+      if (stepRef.current > frontierRef.current.step) setFrontier({ step: stepRef.current, done: false, live: null });
       line = `Step ${stepRef.current}: ${text}`;
-      // Prev / Next: here is the step wanted, the explanation stops at its start (paused)
-      if (seekTarget.current !== null && stepRef.current >= seekTarget.current) {
-        seekTarget.current = null;
-        seekEnd();
-        pauseAll();
-        setPaused(true);
-        setSeeking(false);
-      }
+      navAnnounce(stepRef.current);
     }
     setSteps(prev => [...prev, line]);
     setStatus(line);
@@ -62,7 +111,10 @@ export function useExplanation() {
   const startRef = useRef(0);
   const resetResult = (keepBoard = false) => {
     window.clearTimeout(startRef.current);
-    if (seekTarget.current !== null) { seekTarget.current = null; seekEnd(); setSeeking(false); }
+    if (!keepBoard) uncover(false);
+    if (seekingRef.current) stopSeek();
+    navReset();
+    nav.perStep = [];
     setAtStart(false);
     setStatus(''); setIsAnimating(false);
     pace.owed = 0;
@@ -71,6 +123,7 @@ export function useExplanation() {
     setPaused(false);
     timerReset();
     stepRef.current = 0;
+    setFrontier({ step: 0, done: false, live: null });
     setSteps([]);
     // A board that already ran still shows its old work, so it is remounted (cleared) even when keeping it
     if (!keepBoard || boardRun) setBoardKey(k => k + 1);
@@ -103,7 +156,9 @@ export function useExplanation() {
   // The board finished its explanation
   // (a Next that ran past the last step: the explanation is simply finished)
   const finish = () => {
-    if (seekTarget.current !== null) { seekTarget.current = null; seekEnd(); setSeeking(false); setPaused(false); }
+    if (seekingRef.current) { stopSeek(); setPaused(false); }
+    navFinish();
+    setFrontier({ step: frontierRef.current.step, done: true, live: null });
     timerHold(); setIsAnimating(false);
   };
 
@@ -115,28 +170,51 @@ export function useExplanation() {
   // (Julian) clickable only once the explanation is finished, or while it is paused; otherwise (running, before one,
   // after Stop) not
   const canPrev = !seeking && ((isAnimating && paused && !atStart && numbered > 0) || finished);
-  const canNext = !seeking && isAnimating && paused;
-  const prevStep = () => {
+  const ahead = atStart ? frontier.step > 0 || frontier.done : numbered < frontier.step || (numbered === frontier.step && frontier.done);
+  const canNext = !seeking && isAnimating && paused && ahead;
+  // A step's place: shown whole (see navEnd); the furthest step, when not finished: where it was paused
+  const placeOf = (step: number): NavPlace => {
+    const f = frontierRef.current;
+    return !f.done && step === f.step && f.live ? f.live : navEnd(step);
+  };
+  // Prev (Julian): the step is first played backwards on the board as it is (the script's own backward moves, see
+  // nav.undo), then the board is made again up to the step before, without waiting, under a still copy of it. Where
+  // there is no backward play (paused in the middle of a step, other boards), the copy fades into the step before
+  const prevStep = async () => {
     if (!canPrev) return;
     const target = finished ? numbered : numbered - 1;
+    const whole = !finished && nav.step === numbered && nav.fired - nav.base === (nav.perStep[numbered] ?? 0) - 1;
+    const back = finished ? nav.undoDone : whole ? nav.undo[numbered] : null;
     const keep = elapsed;
-    resetResult();
+    seekingRef.current = true;
+    setSeeking(true);
+    if (back) { try { await back(); } catch { /* the board is made again anyway */ } }
+    makeCover();
+    const reached = frontierRef.current, learnt = nav.perStep;
+    resetResult(true);
+    setBoardKey(k => k + 1);
+    setFrontier(reached);
+    nav.perStep = learnt;
     timerSet(keep);
     setIsAnimating(true);
     setPaused(true);
-    if (target < 1) { setAtStart(true); return; }
-    seekTarget.current = target;
-    setSeeking(true);
-    seekStart();
+    if (target < 1) {
+      setAtStart(true);
+      seekingRef.current = false;
+      setSeeking(false);
+      uncover(!back);
+      return;
+    }
+    seekTo(placeOf(target), true, !back);
     // (a fresh board, made with run = true, as in begin)
-    setBoardKey(k => k + 1);
     setBoardRun(true);
   };
   const nextStep = () => {
     if (!canNext) return;
-    seekTarget.current = stepRef.current + 1;
-    setSeeking(true);
-    seekStart();
+    const f = frontierRef.current;
+    const target = atStart ? 1 : numbered + 1;
+    // past the last step: on to the end
+    seekTo(f.done && target > f.step ? null : placeOf(target), false);
     if (atStart) runFromStart();
     else resumeAll();
   };

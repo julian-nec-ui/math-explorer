@@ -563,7 +563,16 @@ Totul arată și se comportă exact ca înainte (verificat: HTML-ul paginii iden
 - Sub Pause: două butoane la fel ca Pause (3D, umbre, push), fundal #104070 cu gradient metalic #40668c, text alb, șevroane duble.
 - Active când e pauză (în timpul explicației) sau când explicația s-a terminat.
 - Prev = rulează din nou explicația de la început fără așteptare (seek în timing.ts: timerele pe MessageChannel, `html.mx-seek` face tranzițiile 0s) până la începutul pasului anterior, apoi pauză. Next = la fel, dar continuă din locul curent până la pasul următor.
-- Oprirea se face în `announce` (useExplanation), când numărul pasului ajunge la țintă. Contorul își păstrează valoarea (timerSet).
+- Oprirea: fiecare pas se arată ÎNTREG — oprire când se creează ultima pauză (wait) a pasului (`nav` în timing.ts: `perStep` = câte pauze are fiecare pas, învățat în timpul rulării; un loc = {step, fired}). Pentru pasul cel mai îndepărtat, nefinalizat: locul unde s-a pus pauza (`frontier.live`). Contorul își păstrează valoarea (timerSet).
+- Un pas nou în script = un `onStatus(...)` înaintea modificărilor lui; tot ce face pasul trebuie să fie înainte de ultima lui pauză.
 - Orice timer nou din scripturi trebuie să treacă prin `pausableTimeout`, altfel nu e accelerat la Prev/Next.
 - Prev de la Pasul 1 duce la început (`atStart`): tabla ca înainte de Explain to Me, fără evidențieri, încă pe pauză. De acolo Next merge la Pasul 1, iar Resume pornește normal.
-- Prev / Next sunt active numai pe pauză sau după ce explicația s-a terminat (la final doar Prev). În rest (în rulare, înainte de Explain to Me, după Stop) sunt dezactivate.
+- Prev e activ pe pauză (nu la început) sau la final. Next e activ numai pe pauză și numai dacă înainte sunt pași deja văzuți: `frontier` ține minte până unde a ajuns explicația și dacă s-a terminat. La frontieră, Next e dezactivat.
+- Adunare / scădere: fiecare parte a unei coloane e un pas separat (deci și o oprire pentru Prev / Next): coloana evidențiată cu semnul, calculul care coboară, adunarea carry-ului, borrow-ul, scrierea cifrei (cu carry).
+- Next merge la viteză normală până la locul următor. Prev joacă pasul înapoi încet:
+  - Scriptul înregistrează `nav.undo[k]`: mișcările inverse (cifrele zboară înapoi în coloană, carry-ul înapoi în colț, borrow-ul înapoi la stânga, cifra scrisă se stinge), apoi revine la starea de la sfârșitul pasului k-1 cu tranziții.
+  - Starea e ținută în `shadow` prin setterii împachetați cu `track`; `ends[k]` e luat la ultima pauză a fiecărui pas.
+  - După animație, tabla e refăcută rapid (seek) sub o copie statică (`makeCover`, `html.mx-covered`), ca să nu se vadă nimic.
+  - Unde nu există undo (pauză în mijlocul unui pas, înmulțire / împărțire / fracții deocamdată), copia se estompează spre pasul anterior.
+- `navReset` aruncă timerele tablei vechi: scriptul vechi nu mai continuă.
+- Overlays din AddSubBoard sunt în `<div data-mx-overlays>`, ca să fie copiate și ascunse.

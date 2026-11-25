@@ -18,3 +18,8 @@ html.mx-seek *, html.mx-seek *::before, html.mx-seek *::after {
   animation-duration: 0s !important;
   animation-delay: 0s !important;
 }
+
+/* Prev: while the explanation is run again up to the step before, a still copy of the board covers it (see makeCover in useExplanation) */
+html.mx-covered .steps-scroll, html.mx-covered [data-mx-overlays] { visibility: hidden; }
+html.mx-covered .mx-cover-clone .steps-scroll { visibility: visible; }
+.mx-cover-clone, .mx-cover-clone * { animation: none !important; transition: none !important; pointer-events: none !important; }
