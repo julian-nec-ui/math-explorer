@@ -62,7 +62,8 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
       </div>
       {/* As wide as its widest row (on a phone too, Julian: FLOAT ends in line with the step delay's drum, not at the
           screen's edge) */}
-      <div className="relative grid w-max grid-cols-[auto_1fr] gap-2">
+      {/* (Julian) on a phone 4px lower: 5px between the elapsed time's digits and the step delay's drum, as between the drum and Pause / Prev / Next */}
+      <div className="relative grid w-max grid-cols-[auto_1fr] gap-2 max-md:mt-1">
       {/* Elapsed time (Julian), tablet / desktop: first, where INTEGER / FLOAT were (its top is what the column lines up
           with the line under the operands, data-colanchor), everything else under it. TIME ELAPSED over the digits, both
           centred on the buttons; placed absolutely in a row as tall as they are, so the timer (a little wider than the
@@ -120,7 +121,7 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
           gap minus 4px), to win room below */}
       {/* (Julian) On a phone Pause, Prev and Next share one row (from md up Prev / Next stay under Pause, 12px lower). On a
           phone the row doesn't widen the column (w-0, the buttons go on past it), so INTEGER / FLOAT keep their width */}
-      <div className={`col-span-2 ${EDGE_3} mt-[3px] md:mt-1 flex gap-2 max-md:w-0 md:flex-col md:gap-3`}>
+      <div className={`col-span-2 ${EDGE_3} mt-1 flex gap-2 max-md:w-0 md:flex-col md:gap-3`}>
       {/* Pause / Resume (Julian): freezes the explanation exactly where it is, and goes on from there. Amber
           (Pause) / green (Resume), darker, a metallic gradient from left to right, slightly 3D, with a shadow; pressed, it sinks in and springs
           back. Only while an explanation runs */}
