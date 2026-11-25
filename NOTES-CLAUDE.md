@@ -586,3 +586,4 @@ Totul arată și se comportă exact ca înainte (verificat: HTML-ul paginii iden
 - Pe telefon, Pause, Prev și Next stau pe un singur rând (coloana nu se lățește: `max-md:w-0`). Step delay stă pe rândul cu INTEGER / FLOAT, la 1rem după FLOAT, centrat pe rând (absolut, în afara grilei). Pause e la 4px sub rotița de step delay.
 - Pe telefon, rotița de step delay se termină exact sub ultima cifră a cronometrului (zecimile). Poziția e măsurată pe pagină (`sdShift`), iar tot grupul se mută cu ea.
 - Pe telefon, Prev / Next sunt mutate spre dreapta (`navShift`, măsurat), ca Next să se termine sub rotița de step delay și sub zecimile cronometrului. Pause rămâne în stânga.
+- Pe telefon, Explain to Me / New Numbers / Stop nu mai au cutia din jur. Stau pe același rând, cu Explain to Me sub Pause și Stop terminându-se sub tabul Fractions, la distanțe egale. Butoanele au aceeași lățime ca înainte, iar textul e cu 30% mai mare (14.3px).
