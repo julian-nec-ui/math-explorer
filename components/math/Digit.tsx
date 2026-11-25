@@ -7,7 +7,7 @@ import type { DigitVariant } from './types';
 import { CELL } from './layout';
 import { RollingDigit } from './RollingDigit';
 import { DigitDrum } from './Drum';
-import { usePhone } from './OperandDrum';
+import { usePhone, setGrown } from './OperandDrum';
 
 const VARIANT: Record<DigitVariant, string> = {
   highlight: 'bg-linear-to-br from-yellow-400 to-orange-500 text-zinc-900 border-yellow-300 scale-110 shadow-[0_0_20px_rgba(250,204,21,0.6)] z-30',
@@ -61,6 +61,13 @@ export function Digit({ digit, variant, isNum1 = true, onIncrement, onDecrement,
   // normal size, however small the board (Julian: not smaller with many digits), and moved in if it would go past the
   // board area's edges (4px)
   const [grow, setGrow] = useState('scale(2)');
+  // (while grown, the Explain to Me / New Numbers / Stop buttons are off: see setGrown)
+  const growKey = useRef(`digit-${Math.random().toString(36).slice(2)}`);
+  useEffect(() => {
+    const k = growKey.current;
+    setGrown(k, phone && visible);
+    return () => setGrown(k, false);
+  }, [phone, visible]);
   const openPhone = () => {
     const el = rootRef.current;
     if (el) {

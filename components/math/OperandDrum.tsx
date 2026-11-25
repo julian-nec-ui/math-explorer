@@ -41,6 +41,24 @@ const subscribeSm = (cb: () => void) => {
   q.addEventListener('change', cb);
   return () => q.removeEventListener('change', cb);
 };
+// Something grown under a finger on a phone (Julian): a drum or a digit made bigger to turn it. While one is, the
+// Explain to Me / New Numbers / Stop buttons are off, so a tap meant for a digit can't start anything; they come back a
+// moment (400ms) after the last one shrinks back (the tap outside that shrinks it must not press them)
+const grown = new Set<string>();
+const grownSubs = new Set<() => void>();
+let grownLock = false;
+let grownTimer = 0;
+export const setGrown = (key: string, on: boolean): void => {
+  const had = grown.has(key);
+  if (on === had) return;
+  if (on) grown.add(key); else grown.delete(key);
+  window.clearTimeout(grownTimer);
+  const set = (v: boolean) => { if (grownLock !== v) { grownLock = v; grownSubs.forEach(f => f()); } };
+  if (grown.size > 0) set(true);
+  else grownTimer = window.setTimeout(() => set(false), 400);
+};
+const subscribeGrown = (cb: () => void) => { grownSubs.add(cb); return () => { grownSubs.delete(cb); }; };
+export const useGrownLock = (): boolean => useSyncExternalStore(subscribeGrown, () => grownLock, () => false);
 export const usePhoneEdge = (): number => useSyncExternalStore(subscribeSm, () => (window.matchMedia(SM_QUERY).matches ? 10 : 2), () => 2);
 
 // When the board shrinks (a phone, or the steps window made wider), the drums shrink much less than the digits
@@ -94,21 +112,22 @@ export function DrumLayer({ host }: { host: RefObject<HTMLDivElement | null> }):
   const touch = (part: FracPart) => {
     const g = grow.current[part] ?? (grow.current[part] = { now: 1, target: 1, timer: 0 });
     g.target = 1.5;
+    setGrown(`drum-${part}`, true);
     window.clearTimeout(g.timer);
-    g.timer = window.setTimeout(() => { g.target = 1; }, 3000);
+    g.timer = window.setTimeout(() => { g.target = 1; setGrown(`drum-${part}`, false); }, 3000);
   };
   useEffect(() => {
     if (!phone) return;
     const onDown = (e: PointerEvent) => {
       for (const [part, g] of Object.entries(grow.current)) {
         const el = els.current[part as FracPart];
-        if (g && g.target !== 1 && !(el && el.contains(e.target as Node))) { g.target = 1; window.clearTimeout(g.timer); }
+        if (g && g.target !== 1 && !(el && el.contains(e.target as Node))) { g.target = 1; window.clearTimeout(g.timer); setGrown(`drum-${part}`, false); }
       }
     };
     document.addEventListener('pointerdown', onDown);
     return () => document.removeEventListener('pointerdown', onDown);
   }, [phone]);
-  useEffect(() => () => Object.values(grow.current).forEach(g => g && window.clearTimeout(g.timer)), []);
+  useEffect(() => () => Object.entries(grow.current).forEach(([part, g]) => { if (g) { window.clearTimeout(g.timer); setGrown(`drum-${part}`, false); } }), []);
   useEffect(() => {
     let raf = 0;
     const tick = () => {

@@ -6,7 +6,7 @@
 // board's frame (BoardView) and the measurements that place them (useLayoutMeasures)
 
 import { useRef, type ReactElement } from 'react';
-import { DigitDrums, DrumLayer, FRAC_PARTS, cleanNumber, numberValue, useCellSize, type DigitDrumsValue, type FractionParts } from './math/shared';
+import { DigitDrums, DrumLayer, useGrownLock, FRAC_PARTS, cleanNumber, numberValue, useCellSize, type DigitDrumsValue, type FractionParts } from './math/shared';
 import { OPERATIONS } from './operations/registry';
 import { ActionButtons } from './explorer/ActionButtons';
 import { BoardView } from './explorer/BoardView';
@@ -79,6 +79,8 @@ export default function MathExplorer(): ReactElement {
     x.begin();
   };
 
+  // (Julian) phone: a digit or a drum grown to be turned: the three buttons are off meanwhile (see setGrown)
+  const grownLock = useGrownLock();
   const explainLabel = isAnimating ? 'Processing...' : ready ? 'Explain to Me' : 'Coming soon';
   const actions = (wide: boolean) => (
     <ActionButtons
@@ -90,6 +92,7 @@ export default function MathExplorer(): ReactElement {
       onExplain={startAnimation}
       onNew={() => problem.regenerate(problem.digitCounts[activeOp].n1, problem.digitCounts[activeOp].n2, problem.numberTypes[activeOp])}
       onStop={x.stopComputation}
+      locked={grownLock}
     />
   );
 
