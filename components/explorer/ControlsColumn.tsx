@@ -62,7 +62,7 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
       </div>
       {/* As wide as its widest row (on a phone too, Julian: FLOAT ends in line with the step delay's drum, not at the
           screen's edge) */}
-      <div className="grid w-max grid-cols-[auto_1fr] gap-2">
+      <div className="relative grid w-max grid-cols-[auto_1fr] gap-2">
       {/* Elapsed time (Julian), tablet / desktop: first, where INTEGER / FLOAT were (its top is what the column lines up
           with the line under the operands, data-colanchor), everything else under it. TIME ELAPSED over the digits, both
           centred on the buttons; placed absolutely in a row as tall as they are, so the timer (a little wider than the
@@ -98,7 +98,9 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
           counts (it stops at 0 and 2); the label left-aligned with INTEGER, the drum right-aligned with FLOAT. Unlike
           the other controls it works while an explanation runs: the step under way finishes as it was, the
           next ones take the new delay */}
-      <div className="col-span-2 mt-1 flex items-center justify-start gap-[0.9375rem] md:justify-between md:gap-0" role="group" aria-label="Step delay">
+      {/* (Julian) On a phone it sits on INTEGER / FLOAT's row, 1rem after FLOAT, centred on it (out of the grid, so the
+          column stays as wide as INTEGER / FLOAT); Pause comes under it, 4px below the drum */}
+      <div className="col-span-2 mt-1 flex items-center justify-start gap-[0.9375rem] md:justify-between md:gap-0 max-md:absolute max-md:mt-0 max-md:top-0 max-md:left-[calc(100%+1rem)] max-md:h-[1.625rem] max-md:whitespace-nowrap" role="group" aria-label="Step delay">
         <span className="text-[8.8px] font-bold uppercase whitespace-nowrap text-cyan-500">Step delay</span>
         <div className="relative md:left-[6px]">
           <CountDrum
@@ -116,6 +118,9 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
       </div>
       {/* (Julian) On a phone: 4px between the step delay, Pause, Prev / Next and the Explain to Me band (the grid's 8px
           gap minus 4px), to win room below */}
+      {/* (Julian) On a phone Pause, Prev and Next share one row (from md up Prev / Next stay under Pause, 12px lower). On a
+          phone the row doesn't widen the column (w-0, the buttons go on past it), so INTEGER / FLOAT keep their width */}
+      <div className={`col-span-2 ${EDGE_3} mt-[3px] md:mt-1 flex gap-2 max-md:w-0 md:flex-col md:gap-3`}>
       {/* Pause / Resume (Julian): freezes the explanation exactly where it is, and goes on from there. Amber
           (Pause) / green (Resume), darker, a metallic gradient from left to right, slightly 3D, with a shadow; pressed, it sinks in and springs
           back. Only while an explanation runs */}
@@ -125,7 +130,7 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
         disabled={!isAnimating || seeking}
         aria-pressed={paused}
         title={paused ? 'Go on from here' : 'Stop for a moment, exactly here'}
-        className={`col-span-2 ${EDGE_3} -mt-1 md:mt-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-black uppercase tracking-[1.5px] text-white text-shadow-[0_1px_1px_rgba(0,0,0,0.45)] cursor-pointer transition-[transform,box-shadow,filter] duration-150 ease-out shadow-[inset_0_1px_0_rgba(255,255,255,0.45),inset_0_-2px_0_rgba(0,0,0,0.25),0_3px_0_rgba(0,0,0,0.45),0_6px_12px_rgba(0,0,0,0.35)] hover:brightness-110 active:translate-y-0.5 active:scale-[0.97] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-1px_0_rgba(0,0,0,0.25),0_1px_0_rgba(0,0,0,0.45),0_2px_5px_rgba(0,0,0,0.35)] disabled:opacity-40 disabled:cursor-default disabled:hover:brightness-100 disabled:active:translate-y-0 disabled:active:scale-100 ${paused ? 'border-[#145c2a] bg-linear-[90deg,#1d7a3c_0%,#2a9a4e_35%,#4fbf6f_55%,#23864a_80%,#165f30_100%]' : 'border-[#7a5200] bg-linear-[90deg,#b07a00_0%,#d69a0a_35%,#f0bd3a_55%,#c88a00_80%,#946400_100%]'}`}
+        className={`shrink-0 max-md:min-w-[6.75rem] flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-black uppercase tracking-[1.5px] text-white text-shadow-[0_1px_1px_rgba(0,0,0,0.45)] cursor-pointer transition-[transform,box-shadow,filter] duration-150 ease-out shadow-[inset_0_1px_0_rgba(255,255,255,0.45),inset_0_-2px_0_rgba(0,0,0,0.25),0_3px_0_rgba(0,0,0,0.45),0_6px_12px_rgba(0,0,0,0.35)] hover:brightness-110 active:translate-y-0.5 active:scale-[0.97] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-1px_0_rgba(0,0,0,0.25),0_1px_0_rgba(0,0,0,0.45),0_2px_5px_rgba(0,0,0,0.35)] disabled:opacity-40 disabled:cursor-default disabled:hover:brightness-100 disabled:active:translate-y-0 disabled:active:scale-100 ${paused ? 'border-[#145c2a] bg-linear-[90deg,#1d7a3c_0%,#2a9a4e_35%,#4fbf6f_55%,#23864a_80%,#165f30_100%]' : 'border-[#7a5200] bg-linear-[90deg,#b07a00_0%,#d69a0a_35%,#f0bd3a_55%,#c88a00_80%,#946400_100%]'}`}
       >
         {paused ? (
           <svg viewBox="0 0 12 12" className="w-3 h-3" aria-hidden="true"><path d="M3 1.5 10.5 6 3 10.5z" fill="currentColor" /></svg>
@@ -136,7 +141,7 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
       </button>
       {/* Prev / Next (Julian): under Pause, made exactly like it (the same 3D look, shadows, push), #104070 with a #40668c metallic gradient, white text and double chevrons.
           While paused, or once the explanation is finished: one step back / on (see prevStep / nextStep) */}
-      <div className={`col-span-2 ${EDGE_3} -mt-1 md:mt-1 grid grid-cols-2 gap-2`}>
+      <div className="shrink-0 grid grid-cols-2 gap-2">
         {([['prev', 'Prev', canPrev, onPrev, 'One step back'], ['next', 'Next', canNext, onNext, 'One step on']] as const).map(([k, label, can, go, hint]) => (
           <button
             key={k}
@@ -156,6 +161,7 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
             )}
           </button>
         ))}
+      </div>
       </div>
       {/* Division only: how the decimal points are moved before dividing (the grid's second row) */}
       {activeOp === 'division' ? (
