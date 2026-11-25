@@ -310,7 +310,9 @@ export function DigitDrum({ value, onStep, open = false, min = 0, max = 9, label
       <div className="absolute inset-y-0 left-1 w-[62%] bg-linear-to-r from-zinc-300/0 via-zinc-300/20 to-zinc-300/0" />
       <div className="absolute inset-y-[18%] left-1 w-[62%] bg-linear-to-b from-transparent via-white/14 to-transparent blur-[1px]" />
       <div className="absolute inset-y-0 left-1 w-[58%] flex items-center justify-center text-2xl font-black text-zinc-950 text-shadow-[0_1px_0_rgba(255,255,255,0.45)]">
-        <span className={textSize} style={textStyle}><RollingDigit value={value} text={text} /></span>
+        {/* A count drum's number in the middle of the grey part (Julian): a 1em box, no line box around it (the text's
+            line height pushed it up) */}
+        <span className={`${textSize} ${ends ? 'flex items-center leading-none' : ''}`} style={textStyle}><RollingDigit value={value} text={text} /></span>
       </div>
       <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} className={`absolute inset-y-0 right-0 w-[38%] touch-none ${dir === 1 ? 'cursor-n-resize' : dir === -1 ? 'cursor-s-resize' : 'cursor-ns-resize'}`} style={dir ? { cursor: dir === 1 ? CURSOR_UP : CURSOR_DOWN } : undefined}>
         <DrumHoles angle={angle} dir={dir} fadeUp={ends && value >= max} fadeDown={ends && value <= min} />

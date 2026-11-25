@@ -13,7 +13,7 @@ import type { Problem } from './useProblem';
 // The step delay's drum sits 6px further right than the column's edge (Julian), and the buttons whose right side is on
 // that edge (FLOAT, Redo, Pause, and in division CLASSIC, EQUAL DECIMALS and DECIMALS) reach out the same 6px, so they
 // all end in line with it
-const EDGE_3 = '-mr-[6px]';
+const EDGE_3 = 'md:-mr-[6px]';
 
 export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAnimating, paused, stepDelay, setStepDelay, onTogglePause, band }: {
   colRef: RefObject<HTMLDivElement | null>; cell: number; timerGap: number; elapsed: number; problem: Problem; isAnimating: boolean;
@@ -57,7 +57,9 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
         <span aria-hidden="true" className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap text-zinc-400">Time elapsed</span>
         <SevenSeg text={formatElapsed(elapsed)} label={`Elapsed time ${formatElapsed(elapsed)}`} />
       </div>
-      <div className="grid w-full md:w-max grid-cols-[auto_1fr] gap-2">
+      {/* As wide as its widest row (on a phone too, Julian: FLOAT ends in line with the step delay's drum, not at the
+          screen's edge) */}
+      <div className="grid w-max grid-cols-[auto_1fr] gap-2">
       {/* How many digits each number has: now on the board, next to each number (see OperandDrum) */}
       {(['integer', 'float'] as NumberType[]).map(t => {
         const active = numberTypes[activeOp] === t;
