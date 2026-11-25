@@ -54,6 +54,12 @@ export const nav = {
   // from where that step is shown whole to where the step before was (`undoDone`: from the end to the last step)
   undo: {} as Record<number, () => Promise<void>>,
   undoDone: null as (() => Promise<void>) | null,
+  // The elapsed time (Julian: Prev / Next set the clock to it): the page's clock (`clock`, `timing` while it runs), when
+  // each step began (`timeAt`, learnt while the explanation runs) and at the end (`timeDone`)
+  clock: (() => 0) as () => number,
+  timing: false,
+  timeAt: [] as number[],
+  timeDone: null as number | null,
 };
 // (for checking in the browser's console)
 if (typeof window !== 'undefined') (window as unknown as { __mxNav: typeof nav }).__mxNav = nav;
@@ -63,12 +69,16 @@ export const navReset = (): void => { timers.forEach(t => { window.clearTimeout(
 // The page, at every numbered step
 export const navAnnounce = (step: number): void => {
   nav.perStep[nav.step] = nav.created;
+  if (nav.timing) nav.timeAt[step] = nav.clock();
   nav.step = step; nav.base = nav.fired; nav.created = 0;
   // (a step with no pause of its own stops where it is announced)
   if (nav.target && nav.target.step === step && nav.target.fired < 0) { nav.target = null; nav.onStop?.(); }
 };
 // The page, when the explanation is finished (the last step's pauses)
-export const navFinish = (): void => { nav.perStep[nav.step] = nav.created; };
+export const navFinish = (): void => {
+  nav.perStep[nav.step] = nav.created;
+  if (nav.timing) nav.timeDone = nav.clock();
+};
 // The place where a step is shown whole: all its pauses over but the last (-1: none, stop where it is announced)
 export const navEnd = (step: number): NavPlace => ({ step, fired: (nav.perStep[step] ?? 0) - 1 });
 export const navHere = (): NavPlace => ({ step: nav.step, fired: nav.fired - nav.base });

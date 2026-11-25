@@ -587,3 +587,4 @@ Totul arată și se comportă exact ca înainte (verificat: HTML-ul paginii iden
 - Pe telefon, rotița de step delay se termină exact sub ultima cifră a cronometrului (zecimile). Poziția e măsurată pe pagină (`sdShift`), iar tot grupul se mută cu ea.
 - Pe telefon, Prev / Next sunt mutate spre dreapta (`navShift`, măsurat), ca Next să se termine sub rotița de step delay și sub zecimile cronometrului. Pause rămâne în stânga.
 - Pe telefon, Explain to Me / New Numbers / Stop nu mai au cutia din jur. Stau pe același rând, cu Explain to Me sub Pause și Stop terminându-se sub tabul Fractions, la distanțe egale. Butoanele au aceeași lățime ca înainte, iar textul e cu 30% mai mare (14.3px).
+- Ceasul la Prev / Next: arată timpul la care a început pasul (`nav.timeAt`, învățat în rulare). La locul unde s-a pus pauza arată timpul pauzei, iar la final timpul final. Resume continuă de la pasul afișat, cu ceasul de acolo.

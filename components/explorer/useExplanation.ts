@@ -84,7 +84,7 @@ export function useExplanation() {
     pauseAll(); setPaused(true); timerHold();
     // paused in the furthest step: Next will come back exactly here
     const f = frontierRef.current;
-    if (!f.done && nav.step === f.step) setFrontier({ ...f, live: navHere() });
+    if (!f.done && nav.step === f.step) { setFrontier({ ...f, live: navHere() }); liveTime.current = nav.clock(); }
   };
   const [boardRun, setBoardRun] = useState(false);
 
@@ -115,6 +115,7 @@ export function useExplanation() {
     if (seekingRef.current) stopSeek();
     navReset();
     nav.perStep = [];
+    nav.timeAt = []; nav.timeDone = null;
     setAtStart(false);
     setStatus(''); setIsAnimating(false);
     pace.owed = 0;
@@ -173,6 +174,13 @@ export function useExplanation() {
   const ahead = atStart ? frontier.step > 0 || frontier.done : numbered < frontier.step || (numbered === frontier.step && frontier.done);
   const canNext = !seeking && isAnimating && paused && ahead;
   // A step's place: shown whole (see navEnd); the furthest step, when not finished: where it was paused
+  // (Julian) the clock at a step: what it showed when that step began; the furthest step, when not finished: where it
+  // was paused
+  const liveTime = useRef(0);
+  const timeOf = (step: number): number | undefined => {
+    const f = frontierRef.current;
+    return !f.done && step === f.step && f.live ? liveTime.current : nav.timeAt[step];
+  };
   const placeOf = (step: number): NavPlace => {
     const f = frontierRef.current;
     return !f.done && step === f.step && f.live ? f.live : navEnd(step);
@@ -190,12 +198,14 @@ export function useExplanation() {
     setSeeking(true);
     if (back) { try { await back(); } catch { /* the board is made again anyway */ } }
     makeCover();
-    const reached = frontierRef.current, learnt = nav.perStep;
+    const reached = frontierRef.current, learnt = nav.perStep, times = nav.timeAt, timeDone = nav.timeDone;
     resetResult(true);
     setBoardKey(k => k + 1);
     setFrontier(reached);
     nav.perStep = learnt;
-    timerSet(keep);
+    nav.timeAt = times; nav.timeDone = timeDone;
+    // the clock goes back to what it showed at that step (0 at the very beginning)
+    timerSet(target < 1 ? 0 : timeOf(target) ?? keep);
     setIsAnimating(true);
     setPaused(true);
     if (target < 1) {
@@ -214,7 +224,11 @@ export function useExplanation() {
     const f = frontierRef.current;
     const target = atStart ? 1 : numbered + 1;
     // past the last step: on to the end
-    seekTo(f.done && target > f.step ? null : placeOf(target), false);
+    const toEnd = f.done && target > f.step;
+    seekTo(toEnd ? null : placeOf(target), false);
+    // the clock jumps to what it showed there
+    const t = toEnd ? nav.timeDone : timeOf(target);
+    if (t != null) timerSet(t);
     if (atStart) runFromStart();
     else resumeAll();
   };
