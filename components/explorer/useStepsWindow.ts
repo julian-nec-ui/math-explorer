@@ -9,9 +9,10 @@ const STEPS_SIDE_QUERY = '(min-width: 64rem) and (min-width: 48rem) and (min-hei
 const readSteps = (): { open: boolean; w: number | null; h: number | null } => {
   try {
     const v = JSON.parse(localStorage.getItem('math-explorer-steps') ?? 'null');
-    if (v && typeof v === 'object') return { open: v.open !== false, w: typeof v.w === 'number' ? v.w : null, h: typeof v.h === 'number' ? v.h : null };
+    // (always closed when the page opens or reloads, Julian; the size it was dragged to is kept)
+    if (v && typeof v === 'object') return { open: false, w: typeof v.w === 'number' ? v.w : null, h: typeof v.h === 'number' ? v.h : null };
   } catch { /* storage off: defaults */ }
-  return { open: true, w: null, h: null };
+  return { open: false, w: null, h: null };
 };
 
 // The steps window's state and behaviour: open / closed, its size (beside or under the board), the default width, the
@@ -19,7 +20,7 @@ const readSteps = (): { open: boolean; w: number | null; h: number | null } => {
 // (`tabsRef`: the operation tabs, its default width lines up with them; `viewWidth`: the board area's width, nominal px)
 export function useStepsWindow(tabsRef: RefObject<HTMLElement | null>, viewWidth: number) {
   // The steps window: open or closed, its width (beside the board) and height (under it); null = the layout's default
-  const [stepsUi, setStepsUi] = useState<{ open: boolean; w: number | null; h: number | null }>({ open: true, w: null, h: null });
+  const [stepsUi, setStepsUi] = useState<{ open: boolean; w: number | null; h: number | null }>({ open: false, w: null, h: null });
   const [stepsSide, setStepsSide] = useState(false);
   // How much wider than its usual width the steps window is (beside the board; its usual width is the layout's:
   // 30% of the row, between 16rem and 28rem). Measured on every size change, dragging included

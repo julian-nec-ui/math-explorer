@@ -109,6 +109,23 @@ export function StepsWindow({ sw, steps, status, isAnimating, ready, label }: { 
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 rounded-r-2xl border-y-[3px] border-r-[3px] border-l-0 border-t-[#55b58e] border-r-[#42a07c] border-b-[#2f7f61] shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_-1px_0_0_rgba(255,255,255,0.1),0_3px_8px_rgba(0,0,0,0.55)] mask-[linear-gradient(90deg,transparent_0%,black_35%)]"
       />
+      {/* Closed (Julian): the window still shows, small, its latest line ("Ready to explain...", the step under way, the
+          result) on one line — across the strip under the board, down the strip beside it; a click opens it */}
+      {!stepsUi.open && (() => {
+        const last = steps.length > 0 ? steps[steps.length - 1] : (status || (isAnimating ? '' : ready ? 'Ready to explain...' : `${label} is not available yet.`));
+        const style = steps.length === 0 ? STEP_TEXT : last.startsWith('Done') ? { ...RESULT_STEP_TEXT, fontWeight: 600 } : CURRENT_STEP_TEXT;
+        return last ? (
+          <button
+            type="button"
+            onClick={toggleSteps}
+            tabIndex={-1}
+            aria-hidden="true"
+            className={`absolute overflow-hidden whitespace-nowrap text-ellipsis text-left font-medium text-[11px] tracking-[1px] leading-none cursor-pointer ${stepsSide ? 'top-11 bottom-3 left-0 right-[3px] flex justify-start items-center [writing-mode:vertical-rl]' : 'inset-y-0 left-3 right-11 flex items-center'}`}
+          >
+            <span className="overflow-hidden text-ellipsis" style={style}>{last}</span>
+          </button>
+        ) : null;
+      })()}
       <div
         ref={stepsRef}
         role="log"
