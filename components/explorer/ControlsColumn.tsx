@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useState, type ReactElement, type ReactNode, type RefObject } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactElement, type ReactNode, type RefObject } from 'react';
 import { CountDrum, REM_PX, STEP_DELAYS_MS, toRem, type NumberType } from '../math/shared';
 import SevenSeg, { formatElapsed } from '../math/SevenSeg';
 import type { DivisionMethod, DivisionResult } from '../operations/basic/DivisionBoard';
@@ -45,6 +45,30 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
     window.addEventListener('resize', measure);
     document.addEventListener('transitionend', measure, true);
     return () => { window.removeEventListener('resize', measure); document.removeEventListener('transitionend', measure, true); };
+  });
+  // Phone (Julian): the step delay's drum ends exactly under the elapsed time's last digit (the tenths); the whole
+  // step delay group (label, 15px, drum) moves with it. Measured on the page (screen px; tolerance, not ===)
+  const sdRef = useRef<HTMLDivElement>(null);
+  const [sdShift, setSdShift] = useState(0);
+  // (and Prev / Next, Julian: Next ends there too, the pair moved right; Pause stays at the left)
+  const navRef = useRef<HTMLDivElement>(null);
+  const [navShift, setNavShift] = useState(0);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const g = sdRef.current, drum = g?.querySelector('.rounded-md'), nav = navRef.current;
+      const timer = [...document.querySelectorAll('[role="timer"]')].find(t => t.getBoundingClientRect().width > 0);
+      if (!g || !drum || !nav || !timer || getComputedStyle(g).position !== 'absolute') {
+        setSdShift(prev => (prev === 0 ? prev : 0)); setNavShift(prev => (prev === 0 ? prev : 0)); return;
+      }
+      const right = timer.getBoundingClientRect().right;
+      const d = right - drum.getBoundingClientRect().right;
+      setSdShift(prev => (Math.abs(d) < 0.5 ? prev : Math.round((prev + d) * 2) / 2));
+      const n = right - nav.getBoundingClientRect().right;
+      setNavShift(prev => (Math.abs(n) < 0.5 ? prev : Math.round((prev + n) * 2) / 2));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
   });
   // (fractions: where it always was, 7px lower like the others — Julian)
   const colTop = followLine && lineTop !== null ? lineTop : defaultTop + 7;
@@ -101,7 +125,7 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
           next ones take the new delay */}
       {/* (Julian) On a phone it sits on INTEGER / FLOAT's row, 1rem after FLOAT, centred on it (out of the grid, so the
           column stays as wide as INTEGER / FLOAT); Pause comes under it, 4px below the drum */}
-      <div className="col-span-2 mt-1 flex items-center justify-start gap-[0.9375rem] md:justify-between md:gap-0 max-md:absolute max-md:mt-0 max-md:top-0 max-md:left-[calc(100%+1rem)] max-md:h-[1.625rem] max-md:whitespace-nowrap" role="group" aria-label="Step delay">
+      <div className="col-span-2 mt-1 flex items-center justify-start gap-[0.9375rem] md:justify-between md:gap-0 max-md:absolute max-md:mt-0 max-md:top-0 max-md:left-[calc(100%+1rem)] max-md:h-[1.625rem] max-md:whitespace-nowrap" style={sdShift ? { translate: `${sdShift}px 0` } : undefined} ref={sdRef} role="group" aria-label="Step delay">
         <span className="text-[8.8px] font-bold uppercase whitespace-nowrap text-cyan-500">Step delay</span>
         <div className="relative md:left-[6px]">
           <CountDrum
@@ -142,7 +166,7 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
       </button>
       {/* Prev / Next (Julian): under Pause, made exactly like it (the same 3D look, shadows, push), #104070 with a #40668c metallic gradient, white text and double chevrons.
           While paused, or once the explanation is finished: one step back / on (see prevStep / nextStep) */}
-      <div className="shrink-0 grid grid-cols-2 gap-2">
+      <div ref={navRef} className="shrink-0 grid grid-cols-2 gap-2" style={navShift ? { translate: `${navShift}px 0` } : undefined}>
         {([['prev', 'Prev', canPrev, onPrev, 'One step back'], ['next', 'Next', canNext, onNext, 'One step on']] as const).map(([k, label, can, go, hint]) => (
           <button
             key={k}

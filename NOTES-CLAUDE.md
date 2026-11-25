@@ -584,3 +584,5 @@ Totul arată și se comportă exact ca înainte (verificat: HTML-ul paginii iden
 - Pe telefon, minimum 2px între două rotițe una sub alta (DrumLayer): când s-ar atinge, se desenează mai mici, față de mijlocul lor, iar marginea dreaptă rămâne pe loc.
 - Pe telefon, o rotiță atinsă crește la 150% din mărimea ei curentă.
 - Pe telefon, Pause, Prev și Next stau pe un singur rând (coloana nu se lățește: `max-md:w-0`). Step delay stă pe rândul cu INTEGER / FLOAT, la 1rem după FLOAT, centrat pe rând (absolut, în afara grilei). Pause e la 4px sub rotița de step delay.
+- Pe telefon, rotița de step delay se termină exact sub ultima cifră a cronometrului (zecimile). Poziția e măsurată pe pagină (`sdShift`), iar tot grupul se mută cu ea.
+- Pe telefon, Prev / Next sunt mutate spre dreapta (`navShift`, măsurat), ca Next să se termine sub rotița de step delay și sub zecimile cronometrului. Pause rămâne în stânga.
