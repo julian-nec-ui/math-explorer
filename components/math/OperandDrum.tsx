@@ -128,11 +128,13 @@ export function DrumLayer({ host }: { host: RefObject<HTMLDivElement | null> }):
   // A phone (Julian): like a digit, a touched drum grows (to 150% here) and goes back 3 s after the last touch, or at once
   // on a touch outside it. `grow`: each drum's extra scale now (eased towards its target every frame)
   const phone = usePhone();
+  // (held sideways, Julian: 10% smaller than that, 135%)
+  const side = usePhoneSide();
   const grow = useRef<Partial<Record<FracPart, { now: number; target: number; timer: number }>>>({});
   // (Julian) a touched drum grows to 150% of the size it is drawn at, so it is easy to turn
   const touch = (part: FracPart) => {
     const g = grow.current[part] ?? (grow.current[part] = { now: 1, target: 1, timer: 0 });
-    g.target = 1.5;
+    g.target = side ? 1.35 : 1.5;
     setGrown(`drum-${part}`, true);
     window.clearTimeout(g.timer);
     g.timer = window.setTimeout(() => { g.target = 1; setGrown(`drum-${part}`, false); }, 3000);
