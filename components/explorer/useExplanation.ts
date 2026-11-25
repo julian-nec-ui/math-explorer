@@ -5,7 +5,7 @@ import { useElapsedTimer } from './useElapsedTimer';
 // The explanation under way: its steps (numbered as they come), the status line, running / paused, the board's key
 // (a reset remounts it) and run flag, and the elapsed-time counter
 // (Julian) only after an earlier explanation (the counter not at 0); at 0 it starts at once
-const START_DELAY_MS = 400;
+const START_DELAY_MS = 750;
 
 export function useExplanation() {
   const [status, setStatus] = useState('');
