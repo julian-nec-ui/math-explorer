@@ -176,7 +176,8 @@ export default function MathExplorer(): ReactElement {
                 onNext={x.nextStep}
                 seeking={x.seeking}
                 band={bandInline ? null : (
-                  <div className="mt-3 w-0 min-w-full bg-zinc-800/50 px-3 py-2.5 md:py-2 rounded-2xl border border-zinc-700">
+                  <div className="mt-[9px] md:mt-3 w-0 min-w-full bg-zinc-800/50 px-3 py-2.5 md:py-2 rounded-2xl border border-zinc-700">
+                    {/* (Julian) on a phone 4px higher in all (Pause above it is 1px higher too); the board under it follows */}
                     <div className="grid grid-cols-3 md:grid-cols-2 gap-2">
                       {actions(true)}
                     </div>

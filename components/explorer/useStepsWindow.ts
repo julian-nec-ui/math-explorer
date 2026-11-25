@@ -143,7 +143,8 @@ export function useStepsWindow(tabsRef: RefObject<HTMLElement | null>, viewWidth
     // the first move goes on in the slide's direction (closing: right / down; opening: left / up), then a damped wobble
     const dir = stepsUi.open ? -1 : 1;
     const t = (d: number) => (stepsSide ? `translateX(${d * dir}px)` : `translateY(${d * dir}px)`);
-    e.currentTarget.animate([0, 6, -4, 3, -1.5, 0.5, 0].map(d => ({ transform: t(d) })), { duration: 420, easing: 'ease-out' });
+    // (Julian) slower and smoother: twice as long, a little softer, every swing eased in and out (sine-like)
+    e.currentTarget.animate([0, 5, -3.2, 1.9, -0.9, 0.35, 0].map(d => ({ transform: t(d), easing: 'cubic-bezier(0.37, 0, 0.63, 1)' })), { duration: 850, easing: 'linear' });
   };
   const saveSteps = (v: { open: boolean; w: number | null; h: number | null }) => {
     setStepsUi(v);
