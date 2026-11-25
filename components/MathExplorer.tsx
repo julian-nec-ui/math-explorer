@@ -176,8 +176,8 @@ export default function MathExplorer(): ReactElement {
                 onNext={x.nextStep}
                 seeking={x.seeking}
                 band={bandInline ? null : (
-                  <div className="max-md:mt-[7px] md:mt-3 w-0 min-w-full bg-zinc-800/50 px-3 py-2.5 md:py-2 rounded-2xl border border-zinc-700 max-md:bg-transparent max-md:border-0 max-md:p-0 max-md:rounded-none">
-                    {/* (Julian) on a phone no box: three separate buttons, on the line they were on (11px lower than the box was), Explain to
+                  <div className="max-md:-mt-[0.5px] md:mt-3 w-0 min-w-full bg-zinc-800/50 px-3 py-2.5 md:py-2 rounded-2xl border border-zinc-700 max-md:bg-transparent max-md:border-0 max-md:p-0 max-md:rounded-none">
+                    {/* (Julian) on a phone no box: three separate buttons, 7.5px under Pause / Prev / Next (half the 15px it was), Explain to
                         Me under Pause's left edge, Stop ending under the Fractions tab, equal gaps between them; the board under it follows */}
                     <div className="grid grid-cols-3 md:grid-cols-2 gap-2 max-md:flex max-md:justify-between">
                       {actions(true)}
