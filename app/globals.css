@@ -10,3 +10,11 @@ html,
 body {
   background: #09090b;
 }
+
+/* Prev / Next (see seek in components/math/timing.ts): while the explanation is run again up to a step, nothing takes time */
+html.mx-seek *, html.mx-seek *::before, html.mx-seek *::after {
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+}

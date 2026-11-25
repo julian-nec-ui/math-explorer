@@ -558,3 +558,12 @@ Totul arată și se comportă exact ca înainte (verificat: HTML-ul paginii iden
 - `prev.tl === tl` în FitBoard / useAddSubFit: `tl` e măsurat (rect / scară) și variază cu zecimale la fiecare
   randare când scara se schimbă (tragerea ferestrei de pași) → setState la fiecare randare → React #185 (Maximum update
   depth exceeded) și aplicația dispărea. Orice valoare măsurată se compară cu toleranță, niciodată cu ===.
+
+## Prev / Next (25 nov 2026)
+- Sub Pause: două butoane la fel ca Pause (3D, umbre, push), fundal #104070 cu gradient metalic #40668c, text alb, șevroane duble.
+- Active când e pauză (în timpul explicației) sau când explicația s-a terminat.
+- Prev = rulează din nou explicația de la început fără așteptare (seek în timing.ts: timerele pe MessageChannel, `html.mx-seek` face tranzițiile 0s) până la începutul pasului anterior, apoi pauză. Next = la fel, dar continuă din locul curent până la pasul următor.
+- Oprirea se face în `announce` (useExplanation), când numărul pasului ajunge la țintă. Contorul își păstrează valoarea (timerSet).
+- Orice timer nou din scripturi trebuie să treacă prin `pausableTimeout`, altfel nu e accelerat la Prev/Next.
+- Prev de la Pasul 1 duce la început (`atStart`): tabla ca înainte de Explain to Me, fără evidențieri, încă pe pauză. De acolo Next merge la Pasul 1, iar Resume pornește normal.
+- Prev / Next sunt active numai pe pauză sau după ce explicația s-a terminat (la final doar Prev). În rest (în rulare, înainte de Explain to Me, după Stop) sunt dezactivate.

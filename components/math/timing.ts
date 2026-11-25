@@ -15,29 +15,64 @@ export const paced = (ms: number): number => {
 // Pause / Resume (Julian): every board's pauses go through `pausableTimeout`; pausing stops those timers (keeping what
 // was left of each) and freezes every running animation on the page (CSS animations and transitions, and the
 // Web Animations of the hops), exactly where they are; resuming starts them all again from there
-interface PausableTimer { fn: () => void; due: number; remaining: number; id: number }
+interface PausableTimer { fire: () => void; due: number; remaining: number; id: number; gen: number }
 const timers = new Set<PausableTimer>();
 const frozen = new Set<Animation>();
 export const pauseState = { paused: false };
+
+// Prev / Next (Julian): going to another step runs the explanation again (or on, for Next) without waiting — every
+// pause is skipped and every CSS transition / animation takes no time (html.mx-seek, see globals.css) — until the
+// page stops it at the step wanted (seekEnd), paused there
+export const seek = { active: false };
+let seekGen = 0;
+// (a timer armed again replaces its old call: `gen`)
+const arm = (t: PausableTimer, ms: number) => {
+  window.clearTimeout(t.id);
+  const g = ++t.gen;
+  t.due = performance.now() + ms;
+  if (seek.active) {
+    const ch = new MessageChannel();
+    ch.port1.onmessage = () => { ch.port1.close(); if (t.gen === g) t.fire(); };
+    ch.port2.postMessage(0);
+  } else {
+    t.id = window.setTimeout(() => { if (t.gen === g) t.fire(); }, ms);
+  }
+};
 export const pausableTimeout = (fn: () => void, ms: number): void => {
-  const t: PausableTimer = { fn, due: performance.now() + ms, remaining: ms, id: 0 };
-  const fire = () => { timers.delete(t); fn(); };
-  t.fn = fire;
-  if (!pauseState.paused) t.id = window.setTimeout(fire, ms);
+  const t: PausableTimer = { fire: fn, due: performance.now() + ms, remaining: ms, id: 0, gen: 0 };
+  t.fire = () => { timers.delete(t); fn(); };
   timers.add(t);
+  if (!pauseState.paused) arm(t, ms);
 };
 export const pauseAll = (): void => {
   if (pauseState.paused) return;
   pauseState.paused = true;
   const now = performance.now();
-  timers.forEach(t => { window.clearTimeout(t.id); t.remaining = Math.max(0, t.due - now); });
+  timers.forEach(t => { window.clearTimeout(t.id); t.gen++; t.remaining = Math.max(0, t.due - now); });
   document.getAnimations().forEach(a => { if (a.playState === 'running') { a.pause(); frozen.add(a); } });
 };
 export const resumeAll = (): void => {
   if (!pauseState.paused) return;
   pauseState.paused = false;
-  const now = performance.now();
-  timers.forEach(t => { t.due = now + t.remaining; t.id = window.setTimeout(t.fn, t.remaining); });
+  timers.forEach(t => arm(t, t.remaining));
   frozen.forEach(a => { try { a.play(); } catch { /* gone */ } });
   frozen.clear();
+};
+export const seekStart = (): void => {
+  seek.active = true;
+  seekGen++;
+  document.documentElement.classList.add('mx-seek');
+  frozen.forEach(a => { try { a.finish(); } catch { /* gone or endless */ } });
+  frozen.clear();
+  if (!pauseState.paused) timers.forEach(t => arm(t, 0));
+};
+export const seekEnd = (): void => {
+  if (!seek.active) return;
+  seek.active = false;
+  // what was still moving ends where it was going
+  document.getAnimations().forEach(a => {
+    try { if (Number.isFinite(Number(a.effect?.getComputedTiming().endTime))) a.finish(); } catch { /* endless */ }
+  });
+  const g = seekGen;
+  requestAnimationFrame(() => requestAnimationFrame(() => { if (g === seekGen && !seek.active) document.documentElement.classList.remove('mx-seek'); }));
 };

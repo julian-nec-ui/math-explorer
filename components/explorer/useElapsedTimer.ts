@@ -15,6 +15,8 @@ export function useElapsedTimer() {
   };
   const timerGo = () => { if (timer.current.start === null) { timer.current.start = performance.now(); setTiming(true); } };
   const timerReset = () => { timer.current = { acc: 0, start: null }; setElapsed(0); setTiming(false); };
+  // (Prev: the explanation is run again from the start, the counter keeps what it showed, stopped)
+  const timerSet = (ms: number) => { timer.current = { acc: ms, start: null }; setElapsed(ms); setTiming(false); };
   useEffect(() => {
     if (!timing) return;
     const id = window.setInterval(() => {
@@ -23,5 +25,5 @@ export function useElapsedTimer() {
     }, 50);
     return () => window.clearInterval(id);
   }, [timing]);
-  return { elapsed, timerStart, timerHold, timerGo, timerReset };
+  return { elapsed, timerStart, timerHold, timerGo, timerReset, timerSet };
 }

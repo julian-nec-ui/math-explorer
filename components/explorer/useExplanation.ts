@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { pace, pauseAll, resumeAll } from '../math/shared';
+import { pace, pauseAll, resumeAll, seekStart, seekEnd } from '../math/shared';
 import { useElapsedTimer } from './useElapsedTimer';
 
 // The explanation under way: its steps (numbered as they come), the status line, running / paused, the board's key
@@ -18,9 +18,17 @@ export function useExplanation() {
   // Step delay: which of STEP_DELAYS_MS (0, 0.5, 1, 1.5, 2 s) is added after each explanation step; remembered
   // Pause / Resume of a running explanation (see pauseAll in shared)
   const [paused, setPaused] = useState(false);
-  const { elapsed, timerStart, timerHold, timerGo, timerReset } = useElapsedTimer();
+  const { elapsed, timerStart, timerHold, timerGo, timerReset, timerSet } = useElapsedTimer();
+  // Prev / Next (Julian): the step to stop at while the explanation runs again / on without waiting (null: not seeking)
+  const seekTarget = useRef<number | null>(null);
+  const [seeking, setSeeking] = useState(false);
+  // Prev from the first step (Julian): back to the very beginning, the board as before Explain to Me (nothing lit,
+  // no work), still paused; Next (or Resume) starts the explanation from there
+  const [atStart, setAtStart] = useState(false);
+  const runFromStart = () => { setAtStart(false); setBoardKey(k => k + 1); setBoardRun(true); };
   const togglePause = () => {
-    if (!isAnimating) return;
+    if (!isAnimating || seeking) return;
+    if (paused && atStart) { setPaused(false); timerGo(); runFromStart(); return; }
     if (paused) { resumeAll(); setPaused(false); timerGo(); } else { pauseAll(); setPaused(true); timerHold(); }
   };
   const [boardRun, setBoardRun] = useState(false);
@@ -35,6 +43,14 @@ export function useExplanation() {
     if (!text.startsWith('Done')) {
       stepRef.current += 1;
       line = `Step ${stepRef.current}: ${text}`;
+      // Prev / Next: here is the step wanted, the explanation stops at its start (paused)
+      if (seekTarget.current !== null && stepRef.current >= seekTarget.current) {
+        seekTarget.current = null;
+        seekEnd();
+        pauseAll();
+        setPaused(true);
+        setSeeking(false);
+      }
     }
     setSteps(prev => [...prev, line]);
     setStatus(line);
@@ -46,6 +62,8 @@ export function useExplanation() {
   const startRef = useRef(0);
   const resetResult = (keepBoard = false) => {
     window.clearTimeout(startRef.current);
+    if (seekTarget.current !== null) { seekTarget.current = null; seekEnd(); setSeeking(false); }
+    setAtStart(false);
     setStatus(''); setIsAnimating(false);
     pace.owed = 0;
     // A paused explanation that is stopped or reset: everything runs again (the board is cleared anyway)
@@ -83,7 +101,45 @@ export function useExplanation() {
     else start();
   };
   // The board finished its explanation
-  const finish = () => { timerHold(); setIsAnimating(false); };
+  // (a Next that ran past the last step: the explanation is simply finished)
+  const finish = () => {
+    if (seekTarget.current !== null) { seekTarget.current = null; seekEnd(); setSeeking(false); setPaused(false); }
+    timerHold(); setIsAnimating(false);
+  };
 
-  return { status, setStatus, steps, isAnimating, boardKey, boardRun, paused, elapsed, togglePause, announce, resetResult, stopComputation, begin, finish };
+  // Prev / Next (Julian): while paused, or when the explanation is finished, one step back (run again from the start,
+  // without waiting, up to the start of the step before: so a child can go back) or on (to the start of the next one).
+  // There it stays paused: Resume goes on normally from there. The counter keeps what it showed
+  const numbered = steps.filter(l => l.startsWith('Step ')).length;
+  const finished = !isAnimating && boardRun && numbered > 0;
+  // (Julian) clickable only once the explanation is finished, or while it is paused; otherwise (running, before one,
+  // after Stop) not
+  const canPrev = !seeking && ((isAnimating && paused && !atStart && numbered > 0) || finished);
+  const canNext = !seeking && isAnimating && paused;
+  const prevStep = () => {
+    if (!canPrev) return;
+    const target = finished ? numbered : numbered - 1;
+    const keep = elapsed;
+    resetResult();
+    timerSet(keep);
+    setIsAnimating(true);
+    setPaused(true);
+    if (target < 1) { setAtStart(true); return; }
+    seekTarget.current = target;
+    setSeeking(true);
+    seekStart();
+    // (a fresh board, made with run = true, as in begin)
+    setBoardKey(k => k + 1);
+    setBoardRun(true);
+  };
+  const nextStep = () => {
+    if (!canNext) return;
+    seekTarget.current = stepRef.current + 1;
+    setSeeking(true);
+    seekStart();
+    if (atStart) runFromStart();
+    else resumeAll();
+  };
+
+  return { status, setStatus, steps, isAnimating, boardKey, boardRun, paused, elapsed, togglePause, announce, resetResult, stopComputation, begin, finish, canPrev, canNext, prevStep, nextStep, seeking };
 }
