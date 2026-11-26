@@ -104,18 +104,18 @@ export function TestWindow({ label, color, labels, leaving = false, onLeft, chil
     <>
       <div ref={markRef} className="w-0 shrink-0" aria-hidden="true" />
       {wide && panel ? (left !== null && createPortal(
-        // concentric with the panel's corners (1.5rem) at 3px in
-        <div data-test-frame onAnimationEnd={onEnd} className={`absolute z-10 rounded-[1.3125rem] ${look}`} style={{ top: `${GAP}rem`, right: `${GAP}rem`, bottom: `${GAP}rem`, left: `${left}rem`, '--test-r': '1.3125rem' } as CSSProperties}>
+        // concentric with the panel's corners (1rem) at 3px in
+        <div data-test-frame onAnimationEnd={onEnd} className={`absolute z-10 rounded-[0.8125rem] ${look}`} style={{ top: `${GAP}rem`, right: `${GAP}rem`, bottom: `${GAP}rem`, left: `${left}rem`, '--test-r': '0.8125rem' } as CSSProperties}>
           {body}
         </div>,
         panel,
       )) : leaving ? (panel && phoneBox && createPortal(
-        <div data-test-frame onAnimationEnd={onEnd} className={`absolute z-10 rounded-2xl ${look}`} style={{ top: phoneBox.top, left: phoneBox.left, width: phoneBox.width, height: phoneBox.height, '--test-r': '1rem' } as CSSProperties}>
+        <div data-test-frame onAnimationEnd={onEnd} className={`absolute z-10 rounded-[0.8125rem] ${look}`} style={{ top: phoneBox.top, left: phoneBox.left, width: phoneBox.width, height: phoneBox.height, '--test-r': '0.8125rem' } as CSSProperties}>
           {body}
         </div>,
         panel,
       )) : (
-        <div ref={phoneRef} data-test-frame onAnimationEnd={onEnd} style={{ '--test-r': '1rem' } as CSSProperties} className={`mt-[0.1875rem] mb-[0.1875rem] mr-[0.1875rem] -ml-[0.125rem] flex-1 min-w-0 self-stretch min-h-[12rem] max-md:portrait:min-h-0 rounded-2xl ${look}`}>
+        <div ref={phoneRef} data-test-frame onAnimationEnd={onEnd} style={{ '--test-r': '0.8125rem' } as CSSProperties} className={`mt-[0.1875rem] mb-[0.1875rem] mr-[0.1875rem] -ml-[0.125rem] flex-1 min-w-0 self-stretch min-h-[12rem] max-md:portrait:min-h-0 rounded-[0.8125rem] ${look}`}>
           {body}
         </div>
       )}

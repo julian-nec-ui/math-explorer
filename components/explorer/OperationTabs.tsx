@@ -78,7 +78,7 @@ export function OperationTabs({ navRef, activeOp, color, isAnimating, bandInline
   }, [activeOp, navRef]);
 
   return (
-    <nav ref={navRef} data-enter aria-hidden={hidden || undefined} inert={hidden} className={`${hidden ? 'invisible' : ''} relative order-2 ${bandInline ? 'lg:order-3' : ''} w-full lg:w-auto land:w-auto! px-0.5 grid grid-cols-5 gap-1 lg:flex lg:justify-end`} aria-label="Operations">
+    <nav ref={navRef} data-enter aria-hidden={hidden || undefined} inert={hidden} className={`${hidden ? 'invisible max-md:hidden' : ''} relative order-2 ${bandInline ? 'lg:order-3' : ''} w-full lg:w-auto land:w-auto! px-0.5 grid grid-cols-5 gap-1 lg:flex lg:justify-end`} aria-label="Operations">
       {snake && (
         <svg className="pointer-events-none absolute inset-0 overflow-visible" width={snake.w} height={snake.h} aria-hidden="true">
           {/* The grey line: thin and close to the panel's background (#15161e), discreet but visible */}

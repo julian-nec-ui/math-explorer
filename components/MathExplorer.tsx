@@ -187,7 +187,7 @@ export default function MathExplorer(): ReactElement {
               bottom (min-h-dvh, border included): the page only scrolls when the content is taller (Julian).
               Tablet and desktop (`desk`: at least 48rem wide and 37.5rem tall, see globals.css): 99% of the screen width
               and 97% of its height; the board scrolls inside the middle area */}
-          <div ref={panelRef} data-panel data-entering={entering || undefined} className={`${PHONE_TEST_FIT(testing, 'max-md:portrait:h-dvh max-md:portrait:overflow-hidden')} relative min-h-dvh desk:min-h-0 desk:h-[97vh] flex flex-col gap-3 2xl:gap-0 bg-linear-to-br from-[#191a23] via-[#15161e] to-[#111219] border-zinc-800 border rounded-3xl phone:overflow-clip p-3 sm:p-5 md:p-6 lg:p-8 md:pr-2.5 lg:pr-2.5 land:pt-3! phone:pb-0! backdrop-blur-xl shadow-2xl`}>
+          <div ref={panelRef} data-panel data-entering={entering || undefined} className={`${PHONE_TEST_FIT(testing, 'max-md:portrait:h-dvh max-md:portrait:overflow-hidden')} relative min-h-dvh desk:min-h-0 desk:h-[97vh] flex flex-col gap-3 2xl:gap-0 bg-linear-to-br from-[#191a23] via-[#15161e] to-[#111219] border-zinc-800 border rounded-2xl phone:overflow-clip p-3 sm:p-5 md:p-6 lg:p-8 md:pr-2.5 lg:pr-2.5 land:pt-3! phone:pb-0! backdrop-blur-xl shadow-2xl`}>
             {/* 3D title (same for every operation): metallic light-to-shade gradient on the letters, an extruded
                 edge built from stacked 1px shadows that get darker downwards, and a soft cast shadow. Raised 5px */}
             {/* Header. The operation tabs always keep the same look (one row, full names) at the top right.
@@ -248,7 +248,7 @@ export default function MathExplorer(): ReactElement {
                 tall as its board (bigger there, see usePhoneSide; pb-5: room for what the scaled board draws below its box, none
                 in testing: the test frame keeps 3px to the bottom, Julian) and
                 doesn't scroll itself (the rows kept for later in multiplication / division would make it): the page scrolls */}
-            <div ref={viewRef} data-enter="f" className={`steps-scroll relative flex-1 min-w-0 min-h-0 overflow-auto flex md:pl-60 md:-mt-[0.5625rem] land:pl-[23.5rem]! max-md:-ml-[0.125rem] max-md:pl-[0.125rem] sm:max-md:-ml-[0.625rem] sm:max-md:pl-[0.625rem] max-md:landscape:min-h-fit max-md:landscape:pb-5 max-md:landscape:overflow-visible ${testing ? 'max-md:landscape:pb-0!' : ''}`}>
+            <div ref={viewRef} data-enter="f" className={`steps-scroll relative flex-1 min-w-0 min-h-0 overflow-auto flex md:pl-60 md:-mt-[0.5625rem] land:pl-[23.5rem]! max-md:-ml-[0.125rem] max-md:pl-[0.125rem] sm:max-md:-ml-[0.625rem] sm:max-md:pl-[0.625rem] max-md:landscape:min-h-fit max-md:landscape:pb-5 max-md:landscape:overflow-visible ${testing ? 'max-md:landscape:pb-0! overflow-hidden!' : ''}`}>
               {/* The active operation's board (see operations/registry). Multiplication and division sit in a padded frame and
                   start near the top of the panel, just below the title, at the same height for every operation */}
               {testing ? (
