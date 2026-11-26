@@ -166,7 +166,7 @@ function Done({ t }: { t: AdditionTest }): ReactElement {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
         <span className="text-2xl font-black text-zinc-100">Score {t.score} / {t.questions.length}</span>
-        {t.timeUp && <span className="text-sm font-bold text-rose-400">Time's up</span>}
+        {t.timeUp && <span className="text-sm font-bold" style={{ color: WRONG }}>{"Time's up"}</span>}
         <span className="text-xs text-zinc-400">in {formatElapsed(t.elapsed)}</span>
       </div>
       <div className="flex flex-wrap gap-1.5" role="list" aria-label="Questions">
