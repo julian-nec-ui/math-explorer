@@ -43,16 +43,21 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
   // (`id`: the fraction being amplified, 1 or 2: it is brought fully into view — from its numerator to its denominator —
   // and the view stays on it (`followHold`: useScrollFollow doesn't pull it down to the lowest text meanwhile); '' = done)
   const [followHold, setFollowHold] = useState(false);
+  // Held sideways (Julian): from the first amplifying on, the board shrinks so both fractions fit on the screen at once
+  const [compact, setCompact] = useState(false);
   const showFractions = (id: string) => {
     setFollowHold(!!id);
     if (!id) return;
     setPastLcm(true);
-    // (two frames: the new numerator / denominator written above / below it are drawn first)
-    requestAnimationFrame(() => requestAnimationFrame(() => {
+    const shrink = !compact && window.matchMedia('(orientation: landscape) and (max-height: 37.49rem)').matches;
+    if (shrink) setCompact(true);
+    const go = () => {
       const n = refs.current[`n${id}`], d = refs.current[`d${id}`];
       const el = contentRef.current;
       if (!n || !d || !el) return;
-      const parts = [n, d, refs.current[`n${id}x`], refs.current[`d${id}x`]].filter((x): x is HTMLElement => !!x).map(x => x.getBoundingClientRect());
+      // (shrunk: both fractions, the whole row, with what is written above / below them)
+      const row = compact || shrink ? el.querySelector<HTMLElement>('[data-expr]') : null;
+      const parts = [row ?? n, row ?? d, refs.current[`n${id}x`], refs.current[`d${id}x`]].filter((x): x is HTMLElement => !!x).map(x => x.getBoundingClientRect());
       const top = Math.min(...parts.map(r => r.top)) - 12, bottom = Math.max(...parts.map(r => r.bottom)) + 12;
       const area = el.closest('.steps-scroll');
       // the board scrolls in its own frame (desk), or the page scrolls (phones; the steps window sits on the screen's bottom)
@@ -66,7 +71,11 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
         const by = top < 0 ? top : bottom > low ? Math.min(bottom - low, top) : 0;
         if (Math.abs(by) > 1) window.scrollBy({ top: by, behavior: 'smooth' });
       }
-    }));
+    };
+    // (two frames: the new numerator / denominator written above / below it are drawn first; shrinking: once the new
+    // scale is reached, FIT_MS)
+    if (shrink) window.setTimeout(go, FIT_MS + 80);
+    else requestAnimationFrame(() => requestAnimationFrame(go));
   };
   const [multiples, setMultiples] = useState<{ a: (number | null)[]; b: (number | null)[]; common: number | null } | null>(null);
   const [amp1, setAmp1] = useState<Mark | null>(null);
@@ -185,7 +194,12 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
     // (held sideways but narrower than md, Julian: bigger than upright there, at least 115% of their normal size — the
     // page scrolls to show them)
     const hFit = availableHeight && hNat ? Math.max(side ? 1.15 : 0.4, (availableHeight - 20) / hNat) : 0;
-    setFit((!mdUp || sideways) && hFit ? Math.min(next, hFit) : next);
+    // Held sideways, once the LCM is found (Julian): both fractions together on one screen — the fractions' row as tall
+    // as the room between the screen's top and the steps window (`compact`, see showFractions)
+    const exprNat = row.getBoundingClientRect().height / fit;
+    const stepsH = document.querySelector<HTMLElement>('div.sticky.bottom-0')?.offsetHeight ?? 0;
+    const cFit = compact && (side || sideways) && exprNat ? Math.max(0.4, (window.innerHeight - stepsH - 40) / exprNat) : Infinity;
+    setFit(Math.min((!mdUp || sideways) && hFit ? Math.min(next, hFit) : next, cFit));
   });
   // The drums' own zoom: back to their normal size (as in the other operations, they shrink only a little, late)
   const drumZoom = drumScaleFor(fit, !mdUp) / fit;

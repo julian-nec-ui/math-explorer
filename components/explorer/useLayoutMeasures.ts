@@ -198,7 +198,9 @@ export function useScrollFollow(viewRef: Ref<HTMLDivElement>, isAnimating: boole
         if (over > 1) el.scrollBy({ top: over, behavior: 'smooth' });
         return;
       }
-      const over = lowest + 16 - window.innerHeight;
+      // (the steps window sits on the screen's bottom edge, over the page: what is under it can't be seen)
+      const stepsH = document.querySelector<HTMLElement>('div.sticky.bottom-0')?.offsetHeight ?? 0;
+      const over = lowest + 16 - (window.innerHeight - stepsH);
       if (over > 1) window.scrollBy({ top: over, behavior: 'smooth' });
     };
     const schedule = () => { if (!frame) frame = requestAnimationFrame(follow); };
