@@ -265,7 +265,7 @@ export default function MathExplorer(): ReactElement {
               {/* The active operation's board (see operations/registry). Multiplication and division sit in a padded frame and
                   start near the top of the panel, just below the title, at the same height for every operation */}
               {testing ? (
-                <TestWindow label={activeConfig.label} color={activeConfig.color} labels={OP_LABELS} content={testContent}>
+                <TestWindow label={activeConfig.label} color={activeConfig.color} labels={OP_LABELS} content={testContent} cover={testOp && test.phase === 'running'}>
                   {/* Testing (Julian): the explanation window inside the test frame */}
                   <StepsWindow sw={sw} steps={testOp ? test.log : []} status="" isAnimating={false} ready label={activeConfig.label} idle="Ready to test..." inFrame />
                 </TestWindow>

@@ -112,7 +112,13 @@ function Running({ t }: { t: AdditionTest }): ReactElement {
   const [value, setValue] = useState('');
   const [last, setLast] = useState<{ ok: boolean; q: Question; value: number } | null>(null);
   const input = useRef<HTMLInputElement>(null);
-  useEffect(() => { input.current?.focus({ preventScroll: true }); }, [t.index]);
+  const form = useRef<HTMLFormElement>(null);
+  // the answer box gets the keyboard; on a small screen the question, the box and the buttons are scrolled into view
+  useEffect(() => {
+    input.current?.focus({ preventScroll: true });
+    const id = window.setTimeout(() => form.current?.scrollIntoView({ block: 'nearest' }), 350);
+    return () => window.clearTimeout(id);
+  }, [t.index]);
   if (!q) return <></>;
   const send = () => {
     if (value === '') return;
@@ -122,7 +128,7 @@ function Running({ t }: { t: AdditionTest }): ReactElement {
     setValue('');
   };
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3 sm:gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-baseline gap-3">
           <span className="text-sm font-black text-zinc-100">Question {t.index + 1} / {t.questions.length}</span>
@@ -138,7 +144,7 @@ function Running({ t }: { t: AdditionTest }): ReactElement {
       <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden" aria-hidden="true">
         <div className="h-full bg-amber-500 transition-[width] duration-300" style={{ width: `${(t.index / t.questions.length) * 100}%` }} />
       </div>
-      <form className="flex flex-wrap items-end gap-4" onSubmit={e => { e.preventDefault(); send(); }}>
+      <form ref={form} className="flex flex-wrap items-end gap-x-4 gap-y-3" onSubmit={e => { e.preventDefault(); send(); }}>
         <Column q={q} cols={widestResult(t.questions)} answer={
           <input ref={input} value={value} inputMode="numeric" autoComplete="off" aria-label={`${q.a} plus ${q.b} equals`}
             onChange={e => setValue(e.target.value.replace(/\D/g, '').slice(0, q.digits + 1))}

@@ -28,7 +28,11 @@ const TITLE_GAP = 1.25; // rem: 20px nominal
 let phoneBox: { top: number; left: number; width: number; height: number } | null = null;
 
 // `content`: the test itself (addition, Julian); without it the frame only says the test will appear there
-export function TestWindow({ label, color, labels, leaving = false, onLeft, content, children }: { label: string; color: string; labels: string[]; leaving?: boolean; onLeft?: () => void; content?: ReactNode; children?: ReactNode }): ReactElement {
+// `cover` (a test under way, Julian): on a phone held upright the frame covers the whole panel (3px in), over the title and
+// the controls, so the question, the answer box, Check / Cancel test, the progress and the steps strip all fit above the
+// keyboard. The same element, only `fixed` (the panel's backdrop filter makes it the frame's containing block), so the
+// frame isn't mounted again and its entrance animation doesn't play again
+export function TestWindow({ label, color, labels, leaving = false, onLeft, content, cover = false, children }: { label: string; color: string; labels: string[]; leaving?: boolean; onLeft?: () => void; content?: ReactNode; cover?: boolean; children?: ReactNode }): ReactElement {
   const markRef = useRef<HTMLDivElement>(null);
   const [wide, setWide] = useState(false);
   const [panel, setPanel] = useState<HTMLElement | null>(null);
@@ -116,7 +120,7 @@ export function TestWindow({ label, color, labels, leaving = false, onLeft, cont
         </div>,
         panel,
       )) : (
-        <div ref={phoneRef} data-test-frame onAnimationEnd={onEnd} style={{ '--test-r': '0.8125rem' } as CSSProperties} className={`mt-[0.1875rem] mb-[0.1875rem] mr-[0.1875rem] -ml-[0.125rem] flex-1 min-w-0 self-stretch min-h-[12rem] max-md:portrait:min-h-0 rounded-[0.8125rem] ${look}`}>
+        <div ref={phoneRef} data-test-frame onAnimationEnd={onEnd} style={{ '--test-r': '0.8125rem' } as CSSProperties} className={`mt-[0.1875rem] mb-[0.1875rem] mr-[0.1875rem] -ml-[0.125rem] flex-1 min-w-0 self-stretch min-h-[12rem] max-md:portrait:min-h-0 ${cover ? 'max-md:portrait:fixed max-md:portrait:inset-[0.1875rem] max-md:portrait:z-40 max-md:portrait:m-0! max-md:portrait:bg-[#17181f]' : ''} rounded-[0.8125rem] ${look}`}>
           {body}
         </div>
       )}
