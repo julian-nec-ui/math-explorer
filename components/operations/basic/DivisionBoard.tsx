@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactElement } from 'react';
-import { CARRY_CHIP, CarryChip, CarryHop, OperandTag, OperandDrum, Digit, SumPop, ResultSign, ThousandsComma, commaAfter, pickVariant, toRem, useCellSize, lowerScale, lowerStyle } from '../../math/shared';
+import { CARRY_CHIP, CarryChip, CarryHop, OperandTag, OperandDrum, Digit, SumPop, ResultSign, ThousandsComma, commaAfter, pickVariant, revealBand, toRem, useCellSize, lowerScale, lowerStyle } from '../../math/shared';
 import { COMMA_NUDGE, COMMA_W, type Cell, type Chip, DOT_ROOM, type DivisionBoardProps, GAP, type Line, type Mover, type SideMul, type WorkRow, planDivision } from './division/model';
 import { runDivision } from './division/script';
 export type { DivisionResult, DivisionMethod } from './division/model';
@@ -74,7 +74,16 @@ export default function DivisionBoard({ num1, num2, run, onStatus, onDone, rende
     layout.current = { cell, yD, yWork, x };
   });
 
-  useEffect(() => runDivision({ run, setChips, num1, num2, method, result, layout, setRows, onStatus, setShifted, setHl, setQuot, setLines, setHop, setPop, setFadingCells, setUsedD, setMover, setFinalRow, setQSign, setSide, setFrames, onDone }), []);
+  // At the end (Julian): the result — the quotient, at the top, under N1 : N2 — is brought back into view, with as much
+  // of the work under it as fits (the page had followed the work down, on a phone)
+  const boardRef = useRef<HTMLDivElement>(null);
+  const showQuotient = () => {
+    const el = boardRef.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top - 8;
+    requestAnimationFrame(() => revealBand(el, top, top));
+  };
+  useEffect(() => runDivision({ run, setChips, num1, num2, method, result, layout, setRows, onStatus, setShifted, setHl, setQuot, setLines, setHop, setPop, setFadingCells, setUsedD, setMover, setFinalRow, setQSign, setSide, setFrames, onDone, showQuotient }), []);
 
   const bottom = Math.max(yWork, ...rows.map(r => r.y + cell), ...lines.map(l => l.y + 3), side ? side.y + 3 * cell + 40 : 0);
   const width = boardWidth;
@@ -123,7 +132,7 @@ export default function DivisionBoard({ num1, num2, run, onStatus, onDone, rende
   );
 
   return (
-    <div className="relative mx-auto" style={toRem({ width, height })}>
+    <div ref={boardRef} className="relative mx-auto" style={toRem({ width, height })}>
       {/* N1 (the dividend), after moving the decimal point. Zeros added for the shift, and the zeros brought down
           after its last digit, are drawn as ghost cells; only N1's own digits can be turned */}
       {Array.from({ length: cols }, (_, k) => {

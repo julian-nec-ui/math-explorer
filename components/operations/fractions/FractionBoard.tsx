@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactElement } from 'react';
-import { CarryHop, Digit, LAND_FIT, OpIcon, OperandDrum, commaAfter, drumScaleFor, numberValue, usePhoneEdge, usePhoneSide, type DigitVariant, type FracPart } from '../../math/shared';
+import { CarryHop, Digit, LAND_FIT, OpIcon, OperandDrum, commaAfter, drumScaleFor, numberValue, revealBand, usePhoneEdge, usePhoneSide, type DigitVariant, type FracPart } from '../../math/shared';
 import { Bracket, Crossable, FracComma, EXPR_GAP, Eq, FR_HOP_END, FR_HOP_MS, FR_LAND_MS, FactorChip, type Frac, FracView, type FractionBoardProps, type Hop, MAX_WHOLE_PIECES, type Mark, Mul, Num, Paren, SignMark, SmallEq, Times, WarningIcon, gcd, lcm, primeFactors } from './model';
 import { runFractions } from './script';
 export { hasZeroDenominator } from './model';
@@ -58,19 +58,7 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
       // (shrunk: both fractions, the whole row, with what is written above / below them)
       const row = compact || shrink ? el.querySelector<HTMLElement>('[data-expr]') : null;
       const parts = [row ?? n, row ?? d, refs.current[`n${id}x`], refs.current[`d${id}x`]].filter((x): x is HTMLElement => !!x).map(x => x.getBoundingClientRect());
-      const top = Math.min(...parts.map(r => r.top)) - 12, bottom = Math.max(...parts.map(r => r.bottom)) + 12;
-      const area = el.closest('.steps-scroll');
-      // the board scrolls in its own frame (desk), or the page scrolls (phones; the steps window sits on the screen's bottom)
-      if (area && area.scrollHeight > area.clientHeight + 1 && getComputedStyle(area).overflowY !== 'visible') {
-        const r = area.getBoundingClientRect();
-        const by = top < r.top ? top - r.top : bottom > r.bottom ? Math.min(bottom - r.bottom, top - r.top) : 0;
-        if (Math.abs(by) > 1) area.scrollBy({ top: by, behavior: 'smooth' });
-      } else {
-        const steps = document.querySelector<HTMLElement>('div.sticky.bottom-0');
-        const low = window.innerHeight - (steps?.offsetHeight ?? 0);
-        const by = top < 0 ? top : bottom > low ? Math.min(bottom - low, top) : 0;
-        if (Math.abs(by) > 1) window.scrollBy({ top: by, behavior: 'smooth' });
-      }
+      revealBand(el, Math.min(...parts.map(r => r.top)) - 12, Math.max(...parts.map(r => r.bottom)) + 12);
     };
     // (two frames: the new numerator / denominator written above / below it are drawn first; shrinking: once the new
     // scale is reached, FIT_MS)

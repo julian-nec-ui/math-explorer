@@ -27,10 +27,11 @@ export interface DivisionScript {
   setSide: Dispatch<SetStateAction<SideMul | null>>;
   setFrames: Dispatch<SetStateAction<Array<{ y: number; from: number; to: number }>>>;
   onDone: () => void;
+  showQuotient: () => void;
 }
 
 // The explanation, started when `run` turns true
-export function runDivision({ run, setChips, num1, num2, method, result, layout, setRows, onStatus, setShifted, setHl, setQuot, setLines, setHop, setPop, setFadingCells, setUsedD, setMover, setFinalRow, setQSign, setSide, setFrames, onDone }: DivisionScript) {
+export function runDivision({ run, setChips, num1, num2, method, result, layout, setRows, onStatus, setShifted, setHl, setQuot, setLines, setHop, setPop, setFadingCells, setUsedD, setMover, setFinalRow, setQSign, setSide, setFrames, onDone, showQuotient }: DivisionScript) {
   if (!run) return;
   let alive = true;
   const wait = (ms: number) => new Promise<boolean>(resolve => pausableTimeout(() => resolve(alive), paced(ms)));
@@ -432,6 +433,8 @@ export function runDivision({ run, setChips, num1, num2, method, result, layout,
         cur === ZERO ? ' (no remainder)' : `, remainder ${formatNumber(String(cur), 0, num1.sign)}`,
       ));
     }
+    // the result back in view (see showQuotient)
+    showQuotient();
     onDone();
   })();
 

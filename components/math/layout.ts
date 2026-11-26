@@ -46,3 +46,20 @@ const isMdServer = () => false;
 export function useCellSize(): number {
   return useSyncExternalStore(subscribeMd, isMd, isMdServer) ? 43 : 36;
 }
+
+// Bring a band of a board (screen px, `top` to `bottom`) into view, smoothly: the board area scrolls when it scrolls itself
+// (desk), else the page does (phones; the steps window sits on the screen's bottom edge, over the page). Too tall for
+// the room: its top is shown
+export function revealBand(from: Element, top: number, bottom: number): void {
+  const area = from.closest('.steps-scroll');
+  if (area && area.scrollHeight > area.clientHeight + 1 && getComputedStyle(area).overflowY !== 'visible') {
+    const r = area.getBoundingClientRect();
+    const by = top < r.top ? top - r.top : bottom > r.bottom ? Math.min(bottom - r.bottom, top - r.top) : 0;
+    if (Math.abs(by) > 1) area.scrollBy({ top: by, behavior: 'smooth' });
+  } else {
+    const steps = document.querySelector<HTMLElement>('div.sticky.bottom-0');
+    const low = window.innerHeight - (steps?.offsetHeight ?? 0);
+    const by = top < 0 ? top : bottom > low ? Math.min(bottom - low, top) : 0;
+    if (Math.abs(by) > 1) window.scrollBy({ top: by, behavior: 'smooth' });
+  }
+}
