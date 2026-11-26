@@ -97,7 +97,8 @@ export function useAddSubFit({ num1, num2, availableWidth, availableHeight, left
     // tablet / phone: fit the screen
     : solveFit(natural.dw, extra => Math.max(ADD_MIN_FIT_SMALL, Math.min(cap, ((availableWidth ?? 0) + 8) / (natural.w + extra))), phone);
   // A phone: also as tall as the room above the open steps window, down to 40% (Julian: the sum mustn't run under it)
-  const fitH = natural && phone && availableHeight && natural.h ? Math.max(0.4, Math.min(cap, (availableHeight - 4) / natural.h))
+  // (held sideways, Julian: never below normal size because of the height there — the page scrolls)
+  const fitH = natural && phone && availableHeight && natural.h ? Math.max(side ? 1 : 0.4, Math.min(cap, (availableHeight - 4) / natural.h))
     // (sideways: as tall as the room allows, up to LAND_FIT)
     : natural && land && availableHeight && natural.h ? Math.max(ADD_MIN_FIT_DESK, Math.min(cap, (availableHeight - 4) / natural.h)) : cap;
   const fit = Math.min(fitW, fitH);

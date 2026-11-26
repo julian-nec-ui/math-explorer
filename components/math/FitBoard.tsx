@@ -131,7 +131,8 @@ export default function FitBoard({ children, availableWidth, leftRoom = 0, steps
     // (a phone: down to 40%, so nothing runs under the open steps window, Julian)
     // A phone (Julian: nothing may run under the open steps window): what is drawn so far has to fit, and the board
     // keeps shrinking as rows appear, down to 40%; the room kept for rows to come doesn't count (it isn't laid out)
-    : phone ? phoneFitH(Math.max(0.4, Math.min(cap, Math.floor(((availableHeight - 4) / Math.max(1, natural.hd + 16)) * 100) / 100)))
+    // (held sideways, Julian: never below normal size because of the height there — the page scrolls)
+    : phone ? phoneFitH(Math.max(side ? 1 : 0.4, Math.min(cap, Math.floor(((availableHeight - 4) / Math.max(1, natural.hd + 16)) * 100) / 100)))
     : Math.max(MIN_FIT_HEIGHT, Math.min(cap, Math.floor(((availableHeight - 4) / natural.h) * 100) / 100));
   const fit = Math.min(fitW, fitH);
   // The drums' extra room on the left at this scale (board px)

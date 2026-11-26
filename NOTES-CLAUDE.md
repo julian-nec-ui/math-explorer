@@ -613,3 +613,4 @@ Totul arată și se comportă exact ca înainte (verificat: HTML-ul paginii iden
   tablei (care derulează, deci taie) începea mai la dreapta cu EDGE_5. Pe telefon (`max-md`) zona se întinde acum la stânga
   cu EDGE_5 (`-ml` + `pl` egale, conținutul nu se mută): rotițele se văd întregi, aliniate cu cele 3 butoane.
 - Rotița atinsă (mărită) pe telefonul culcat sub md: 135% în loc de 150% (Julian: cu 10% mai mică); mărimea statică neschimbată.
+- Tot acolo (Julian: „să nu mai micșorăm atât de mult”): înălțimea nu mai micșorează tabla sub mărimea normală (fit ≥ 1 în useAddSubFit și FitBoard, inclusiv cât apar rândurile la înmulțire / împărțire); doar lățimea o mai poate micșora. Pagina se derulează după tablă.
