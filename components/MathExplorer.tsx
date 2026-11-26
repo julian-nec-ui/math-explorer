@@ -5,7 +5,7 @@
 // (useStepsWindow, StepsWindow), the header (Title, OperationTabs, ActionButtons), the controls (ControlsColumn), the
 // board's frame (BoardView) and the measurements that place them (useLayoutMeasures)
 
-import { useRef, type ReactElement } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactElement } from 'react';
 import { DigitDrums, DrumLayer, useGrownLock, FRAC_PARTS, cleanNumber, numberValue, useCellSize, type DigitDrumsValue, type FractionParts } from './math/shared';
 import { OPERATIONS } from './operations/registry';
 import { ActionButtons } from './explorer/ActionButtons';
@@ -17,11 +17,16 @@ import { PageStyles } from './explorer/PageStyles';
 import { SignButton } from './explorer/SignButton';
 import { StepsWindow } from './explorer/StepsWindow';
 import { Title } from './explorer/Title';
+import { ModeToggle, type Mode } from './explorer/ModeToggle';
+import { TestWindow } from './explorer/TestWindow';
 import { useExplanation } from './explorer/useExplanation';
 import { useColBottom, useHeaderBand, usePageRoom, useScrollFollow, useTimerGap, useViewSize } from './explorer/useLayoutMeasures';
 import { useProblem } from './explorer/useProblem';
 import { useStepDelay } from './explorer/useStepDelay';
 import { useStepsWindow } from './explorer/useStepsWindow';
+
+// Every operation's name (the test frame keeps clear of the widest title)
+const OP_LABELS = OPERATIONS.map(o => o.label);
 
 export default function MathExplorer(): ReactElement {
   const x = useExplanation();
@@ -29,6 +34,45 @@ export default function MathExplorer(): ReactElement {
   const problem = useProblem({ isAnimating, resetResult: x.resetResult });
   const { activeOp, num1, num2, fracParts } = problem;
   const { stepDelay, setStepDelay } = useStepDelay();
+  // Learning mode / testing mode (Julian). Testing: no operation tabs, no Explain to Me / New Numbers / Stop, no numbers
+  // on the board (a test window instead); the title, the steps window and the controls column stay (Prev / Next off
+  // until a test is over)
+  const [mode, setMode] = useState<Mode>('learning');
+  const testing = mode === 'testing';
+  // (switching clears what the last explanation left: its steps, the counter, the board)
+  // Back to learning (Julian): the test frame doesn't vanish at once, it closes towards the right and fades (TestWindow
+  // `leaving`), over the board that is already back; then it is gone
+  const [testLeaving, setTestLeaving] = useState(false);
+  // …and learning comes in (Julian): nothing of it shows at first; when the frame is half closed, the numbers fade in
+  // exactly where they will stay ("f": they don't move — the board places its digits from measured positions, a moving
+  // area would put them off and they would jump back at the end), what is on the left (step delay, Pause, …) slides in
+  // slowly from the left and what is on the right (the tabs, the steps
+  // window) from the right, fading in, while the frame fades away. `entering`: the panel's data-entering, and each
+  // [data-enter] element gets its side (data-enter-dir: "l" given, or by where its centre is in the panel); the slide
+  // itself is CSS (PageStyles: enterFromLeft / enterFromRight)
+  const [entering, setEntering] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const changeMode = (m: Mode) => {
+    x.resetResult();
+    const back = mode === 'testing' && m === 'learning';
+    setTestLeaving(back);
+    setEntering(back);
+    setMode(m);
+  };
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    if (!entering || !panel) return;
+    const p = panel.getBoundingClientRect();
+    const mid = p.left + p.width / 2;
+    const els = [...panel.querySelectorAll<HTMLElement>('[data-enter]')];
+    for (const el of els) {
+      const r = el.getBoundingClientRect();
+      el.dataset.enterDir = ['l', 'r', 'f'].includes(el.dataset.enter ?? '') ? el.dataset.enter : r.left + r.width / 2 < mid - 1 ? 'l' : 'r';
+    }
+    // done (0.5s wait + 1s slide): measured layouts that saw the moving boxes measure again
+    const id = window.setTimeout(() => { setEntering(false); window.dispatchEvent(new Event('resize')); }, 1600);
+    return () => { window.clearTimeout(id); for (const el of els) delete el.dataset.enterDir; };
+  }, [entering]);
 
   // Header: from lg up the control band stays on the title's row while it fits (see useHeaderBand)
   const headerRef = useRef<HTMLDivElement>(null);
@@ -39,7 +83,7 @@ export default function MathExplorer(): ReactElement {
 
   const viewRef = useRef<HTMLDivElement>(null);
   const { viewWidth, viewHeight } = useViewSize(viewRef);
-  const sw = useStepsWindow(tabsRef, viewWidth);
+  const sw = useStepsWindow(tabsRef, viewWidth, testing);
   const { stepsUi, stepsExtra, frozenViewW, onNaturalWidth, closedCentred, smoothFit } = sw;
   // The width the boards lay themselves out for
   const boardViewW = frozenViewW ?? viewWidth;
@@ -139,28 +183,30 @@ export default function MathExplorer(): ReactElement {
               bottom (min-h-dvh, border included): the page only scrolls when the content is taller (Julian).
               Tablet and desktop (`desk`: at least 48rem wide and 37.5rem tall, see globals.css): 99% of the screen width
               and 97% of its height; the board scrolls inside the middle area */}
-          <div className="min-h-dvh desk:min-h-0 desk:h-[97vh] flex flex-col gap-3 2xl:gap-0 bg-linear-to-br from-[#191a23] via-[#15161e] to-[#111219] border-zinc-800 border rounded-3xl phone:overflow-clip p-3 sm:p-5 md:p-6 lg:p-8 md:pr-2.5 lg:pr-2.5 land:pt-3! phone:pb-0! backdrop-blur-xl shadow-2xl">
+          <div ref={panelRef} data-panel data-entering={entering || undefined} className="relative min-h-dvh desk:min-h-0 desk:h-[97vh] flex flex-col gap-3 2xl:gap-0 bg-linear-to-br from-[#191a23] via-[#15161e] to-[#111219] border-zinc-800 border rounded-3xl phone:overflow-clip p-3 sm:p-5 md:p-6 lg:p-8 md:pr-2.5 lg:pr-2.5 land:pt-3! phone:pb-0! backdrop-blur-xl shadow-2xl">
             {/* 3D title (same for every operation): metallic light-to-shade gradient on the letters, an extruded
                 edge built from stacked 1px shadows that get darker downwards, and a soft cast shadow. Raised 5px */}
             {/* Header. The operation tabs always keep the same look (one row, full names) at the top right.
                 From lg up: title, control band and tabs on one row while they fit (`bandInline`, measured above).
                 Otherwise (narrower desktop, tablet, phone): title and tabs here, and the control band in the controls column */}
             <div ref={headerRef} className={`relative shrink-0 flex flex-wrap ${bandInline ? 'lg:flex-nowrap' : ''} items-center justify-between gap-x-4 gap-y-3`}>
-            <Title slotRef={titleSlotRef} titleRef={titleRef} label={activeConfig.label} color={activeConfig.color} />
+            <Title slotRef={titleSlotRef} titleRef={titleRef} label={activeConfig.label} color={activeConfig.color} under={<ModeToggle mode={mode} onChange={changeMode} disabled={isAnimating} />} />
           {/* Control band: Explain to Me, New Numbers and Stop on their own background, with the same padding on both sides.
               On the title's row while it fits there (from lg up, `bandInline`). Otherwise it moves into the controls column,
               under INTEGER / FLOAT (see below); this copy then stays invisible and out of the way,
               only so its width can still be measured */}
-            <div ref={bandRef} aria-hidden={!bandInline || undefined} inert={!bandInline} className={`${bandInline ? 'lg:order-2' : 'invisible absolute top-0 left-0 pointer-events-none'} shrink-0 flex items-center bg-zinc-800/50 px-3 py-2 rounded-2xl border border-zinc-700`}>
+            <div ref={bandRef} data-enter aria-hidden={!bandInline || testing || undefined} inert={!bandInline || testing} className={`${bandInline ? `lg:order-2 ${testing ? 'invisible' : ''}` : 'invisible absolute top-0 left-0 pointer-events-none'} shrink-0 flex items-center bg-zinc-800/50 px-3 py-2 rounded-2xl border border-zinc-700`}>
               <div className="flex items-center gap-2.5">
                 {actions(false)}
               </div>
             </div>
-            <OperationTabs navRef={tabsRef} activeOp={activeOp} color={activeConfig.color} isAnimating={isAnimating} bandInline={bandInline} onSelect={problem.selectOp} />
+            <OperationTabs navRef={tabsRef} activeOp={activeOp} color={activeConfig.color} isAnimating={isAnimating} bandInline={bandInline} onSelect={problem.selectOp} hidden={testing} />
             </div>
             {/* Middle area. Desk (tall enough) and lg up: the board on the left keeps its full height and the steps window
                 sits on the right. Otherwise: the board on top and the steps window under it, full width */}
-            <div className="flex flex-col gap-3 flex-1 desk:min-h-0 desk:lg:flex-row desk:lg:gap-0.5">
+            {/* (desk: room for the learning / testing switch hanging under the title, 20px under it, and as much again under
+                the switch: everything below moves down by that much, Julian) */}
+            <div className="flex flex-col gap-3 flex-1 desk:min-h-0 desk:mt-[2.875rem] desk:lg:flex-row desk:lg:gap-0.5">
             <div className="relative flex flex-col md:flex-row flex-1 min-w-0 min-h-0" style={colBottom ? { minHeight: colBottom } : undefined}>
               <ControlsColumn
                 colRef={colRef}
@@ -173,13 +219,14 @@ export default function MathExplorer(): ReactElement {
                 stepDelay={stepDelay}
                 setStepDelay={setStepDelay}
                 onTogglePause={x.togglePause}
-                canPrev={x.canPrev}
-                canNext={x.canNext}
+                canPrev={x.canPrev && !testing}
+                canNext={x.canNext && !testing}
                 onPrev={x.prevStep}
                 onNext={x.nextStep}
                 seeking={x.seeking}
-                band={bandInline ? null : (
-                  <div className="phone:-mt-[0.5px] desk:mt-3 w-0 min-w-full bg-zinc-800/50 px-3 py-2.5 desk:py-2 rounded-2xl border border-zinc-700 phone:bg-transparent phone:border-0 phone:p-0 phone:rounded-none">
+                testing={testing}
+                band={bandInline || testing ? null : (
+                  <div data-enter className="phone:-mt-[0.5px] desk:mt-3 w-0 min-w-full bg-zinc-800/50 px-3 py-2.5 desk:py-2 rounded-2xl border border-zinc-700 phone:bg-transparent phone:border-0 phone:p-0 phone:rounded-none">
                     {/* (Julian) on a phone no box: three separate buttons, 7.5px under Pause / Prev / Next (half the 15px it was), Explain to
                         Me under Pause's left edge, Stop ending under the Fractions tab, equal gaps between them; the board under it follows */}
                     <div className="grid grid-cols-3 desk:grid-cols-2 gap-2 phone:flex phone:justify-between">
@@ -194,11 +241,18 @@ export default function MathExplorer(): ReactElement {
             {/* steps-scroll: the same 8px #456175 scrollbars as the steps window */}
             {/* A phone (narrower than md): the area reaches as far left as the controls column (EDGE_5), so the digit-count
                 drums, in line with INTEGER / Pause / Explain to Me, aren't cut by its edge (Julian). Held sideways: it is as
-                tall as its board (bigger there, see usePhoneSide; pb-5: room for what the scaled board draws below its box) and
+                tall as its board (bigger there, see usePhoneSide; pb-5: room for what the scaled board draws below its box, none
+                in testing: the test frame keeps 3px to the bottom, Julian) and
                 doesn't scroll itself (the rows kept for later in multiplication / division would make it): the page scrolls */}
-            <div ref={viewRef} className="steps-scroll relative flex-1 min-w-0 min-h-0 overflow-auto flex md:pl-60 md:-mt-[0.5625rem] land:pl-[23.5rem]! max-md:-ml-[0.125rem] max-md:pl-[0.125rem] sm:max-md:-ml-[0.625rem] sm:max-md:pl-[0.625rem] max-md:landscape:min-h-fit max-md:landscape:pb-5 max-md:landscape:overflow-visible">
+            <div ref={viewRef} data-enter="f" className={`steps-scroll relative flex-1 min-w-0 min-h-0 overflow-auto flex md:pl-60 md:-mt-[0.5625rem] land:pl-[23.5rem]! max-md:-ml-[0.125rem] max-md:pl-[0.125rem] sm:max-md:-ml-[0.625rem] sm:max-md:pl-[0.625rem] max-md:landscape:min-h-fit max-md:landscape:pb-5 max-md:landscape:overflow-visible ${testing ? 'max-md:landscape:pb-0!' : ''}`}>
               {/* The active operation's board (see operations/registry). Multiplication and division sit in a padded frame and
                   start near the top of the panel, just below the title, at the same height for every operation */}
+              {testing ? (
+                <TestWindow label={activeConfig.label} color={activeConfig.color} labels={OP_LABELS}>
+                  {/* Testing (Julian): the explanation window inside the test frame */}
+                  <StepsWindow sw={sw} steps={x.steps} status={x.status} isAnimating={isAnimating} ready={ready} label={activeConfig.label} idle="Ready to test..." inFrame />
+                </TestWindow>
+              ) : (
               <DigitDrums.Provider value={drums}>
               <BoardView
                 activeOp={activeOp}
@@ -216,10 +270,14 @@ export default function MathExplorer(): ReactElement {
               {/* The digit-count drums, made once and drawn over their places on the board (see OperandDrum) */}
               <DrumLayer host={viewRef} />
               </DigitDrums.Provider>
+              )}
+              {!testing && testLeaving && (
+                <TestWindow label={activeConfig.label} color={activeConfig.color} labels={OP_LABELS} leaving onLeft={() => setTestLeaving(false)} />
+              )}
             </div>
 
             </div>
-            <StepsWindow sw={sw} steps={x.steps} status={x.status} isAnimating={isAnimating} ready={ready} label={activeConfig.label} />
+            {!testing && <StepsWindow sw={sw} steps={x.steps} status={x.status} isAnimating={isAnimating} ready={ready} label={activeConfig.label} />}
             </div>
 
           </div>

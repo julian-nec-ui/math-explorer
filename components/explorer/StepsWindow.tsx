@@ -52,7 +52,10 @@ const StepArrow = ({ color }: { color?: string }): ReactElement => (
 // in view. Metallic green bevelled border on the top, right and bottom that thins out towards the left.
 // On a phone it sticks to the bottom of the screen (with its own background), so the explanation stays
 // in view while the board scrolls under it; on a very short screen (a phone held sideways) it is lower
-export function StepsWindow({ sw, steps, status, isAnimating, ready, label }: { sw: StepsWindowState; steps: string[]; status: string; isAnimating: boolean; ready: boolean; label: string }): ReactElement {
+// `idle`: the line shown while nothing runs (testing mode, Julian: 'Ready to test...')
+// `inFrame` (testing mode, Julian): the window sits inside the test frame, 3px from its edges (top, right and bottom
+// beside the board; left, right and bottom under it) instead of beside / under the board
+export function StepsWindow({ sw, steps, status, isAnimating, ready, label, idle = 'Ready to explain...', inFrame = false }: { sw: StepsWindowState; steps: string[]; status: string; isAnimating: boolean; ready: boolean; label: string; idle?: string; inFrame?: boolean }): ReactElement {
   const { stepsUi, stepsSide, stepsDefaultW, stepsBoxRef, gripRef, placeGrip, toggleSteps, onStepsSlideEnd, saveSteps, startStepsResize } = sw;
   const stepsRef = useRef<HTMLDivElement>(null);
   // Keep the newest step in view as the history grows
@@ -63,8 +66,9 @@ export function StepsWindow({ sw, steps, status, isAnimating, ready, label }: { 
   return (
     <div
       ref={stepsBoxRef}
+      data-enter={inFrame ? undefined : 'r'}
       onTransitionEnd={onStepsSlideEnd}
-      className="sticky bottom-0 z-30 desk:relative desk:z-auto shrink-0 w-full h-40 [@media(max-height:30rem)]:h-24 desk:h-52 desk:lg:h-auto desk:lg:w-[30%] desk:lg:min-w-64 desk:lg:max-w-md rounded-r-2xl bg-[#15161e]/95 backdrop-blur-md desk:bg-transparent desk:backdrop-blur-none transition-[width,height] duration-600 ease-[cubic-bezier(0.22,1,0.36,1)]"
+      className={`${inFrame ? 'relative z-10 mx-[0.1875rem] mb-[0.1875rem] w-[calc(100%-0.375rem)] desk:lg:ml-0 desk:lg:mt-[0.1875rem]' : 'sticky bottom-0 z-30 desk:relative desk:z-auto w-full'} shrink-0 h-40 [@media(max-height:30rem)]:h-24 desk:h-52 desk:lg:h-auto desk:lg:w-[30%] desk:lg:min-w-64 desk:lg:max-w-md rounded-r-2xl bg-[#15161e]/95 backdrop-blur-md desk:bg-transparent desk:backdrop-blur-none transition-[width,height] duration-600 ease-[cubic-bezier(0.22,1,0.36,1)]`}
       // Closed: a thin strip. Resized: the width (beside the board) or the height (under it) that was dragged
       style={stepsSide
         ? (!stepsUi.open ? { width: STEPS_STRIP, minWidth: STEPS_STRIP } : stepsUi.w ? { width: stepsUi.w, minWidth: 200, maxWidth: '70vw' } : stepsDefaultW ? { width: stepsDefaultW, minWidth: 200, maxWidth: '70vw' } : undefined)
@@ -112,7 +116,7 @@ export function StepsWindow({ sw, steps, status, isAnimating, ready, label }: { 
       {/* Closed (Julian): the window still shows, small, its latest line ("Ready to explain...", the step under way, the
           result) on one line — across the strip under the board, down the strip beside it; a click opens it */}
       {!stepsUi.open && (() => {
-        const last = steps.length > 0 ? steps[steps.length - 1] : (status || (isAnimating ? '' : ready ? 'Ready to explain...' : `${label} is not available yet.`));
+        const last = steps.length > 0 ? steps[steps.length - 1] : (status || (isAnimating ? '' : ready ? idle : `${label} is not available yet.`));
         const style = steps.length === 0 ? STEP_TEXT : last.startsWith('Done') ? { ...RESULT_STEP_TEXT, fontWeight: 600 } : CURRENT_STEP_TEXT;
         return last ? (
           <button
@@ -151,7 +155,7 @@ export function StepsWindow({ sw, steps, status, isAnimating, ready, label }: { 
           </ol>
         ) : (
           <p style={STEP_TEXT}>
-            {status || (isAnimating ? '' : ready ? 'Ready to explain...' : `${label} is not available yet.`)}
+            {status || (isAnimating ? '' : ready ? idle : `${label} is not available yet.`)}
           </p>
         )}
       </div>

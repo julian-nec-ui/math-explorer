@@ -18,7 +18,8 @@ const readSteps = (): { open: boolean; w: number | null; h: number | null } => {
 // The steps window's state and behaviour: open / closed, its size (beside or under the board), the default width, the
 // resize edge with its grip mark, the slide and bump when it opens or closes, and what that does to the boards' width
 // (`tabsRef`: the operation tabs, its default width lines up with them; `viewWidth`: the board area's width, nominal px)
-export function useStepsWindow(tabsRef: RefObject<HTMLElement | null>, viewWidth: number) {
+// `inFrame`: the window moved into the test frame (testing mode): a new element with a new parent, measured again
+export function useStepsWindow(tabsRef: RefObject<HTMLElement | null>, viewWidth: number, inFrame = false) {
   // The steps window: open or closed, its width (beside the board) and height (under it); null = the layout's default
   const [stepsUi, setStepsUi] = useState<{ open: boolean; w: number | null; h: number | null }>({ open: false, w: null, h: null });
   const [stepsSide, setStepsSide] = useState(false);
@@ -58,7 +59,7 @@ export function useStepsWindow(tabsRef: RefObject<HTMLElement | null>, viewWidth
     ro.observe(box);
     ro.observe(row);
     return () => ro.disconnect();
-  }, [stepsSide, stepsUi.open, stepsDefaultW]);
+  }, [stepsSide, stepsUi.open, stepsDefaultW, inFrame]);
   useEffect(() => {
     const row = stepsBoxRef.current?.parentElement;
     const nav = tabsRef.current;
@@ -75,7 +76,7 @@ export function useStepsWindow(tabsRef: RefObject<HTMLElement | null>, viewWidth
     ro.observe(nav);
     window.addEventListener('resize', measure);
     return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
-  }, [stepsSide]);
+  }, [stepsSide, inFrame]);
   
   // The layout changed (beside / under the board): the mark starts again from the middle of the new edge
   useEffect(() => {

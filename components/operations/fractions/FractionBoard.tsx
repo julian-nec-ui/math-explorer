@@ -1,12 +1,19 @@
 "use client";
 
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactElement } from 'react';
-import { CarryHop, Digit, LAND_FIT, OpIcon, OperandDrum, commaAfter, drumScaleFor, numberValue, revealBand, usePhoneEdge, usePhoneSide, type DigitVariant, type FracPart } from '../../math/shared';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactElement } from 'react';
+import { CarryHop, Digit, LAND_FIT, OpIcon, OperandDrum, REM_PX, commaAfter, drumScaleFor, numberValue, revealBand, usePhoneEdge, usePhoneSide, type DigitVariant, type FracPart } from '../../math/shared';
 import { Bracket, Crossable, FracComma, EXPR_GAP, Eq, FR_HOP_END, FR_HOP_MS, FR_LAND_MS, FactorChip, type Frac, FracView, type FractionBoardProps, type Hop, MAX_WHOLE_PIECES, type Mark, Mul, Num, Paren, SignMark, SmallEq, Times, WarningIcon, gcd, lcm, primeFactors } from './model';
 import { runFractions } from './script';
 export { hasZeroDenominator } from './model';
 
 const MD_QUERY = '(min-width: 48rem)';
+// tablet / desktop (wide and tall enough for the fixed-height panel, see `desk` in globals.css)
+const DESK_QUERY = '(min-width: 48rem) and (min-height: 37.5rem)';
+const subscribeDesk = (cb: () => void) => {
+  const q = window.matchMedia(DESK_QUERY);
+  q.addEventListener('change', cb);
+  return () => q.removeEventListener('change', cb);
+};
 const subscribeMd = (cb: () => void) => {
   const q = window.matchMedia(MD_QUERY);
   q.addEventListener('change', cb);
@@ -154,6 +161,8 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
   // (read at once, not after the first paint: the board is made anew for every new problem, and one frame without the
   // margin made the fractions jump left and back)
   const mdUp = useSyncExternalStore(subscribeMd, () => window.matchMedia(MD_QUERY).matches, () => false);
+  // Tablet / desktop (Julian): the whole fractions board (drums, brackets, digits) 15px further right (px to the left)
+  const deskNudge = useSyncExternalStore(subscribeDesk, () => window.matchMedia(DESK_QUERY).matches, () => false) ? -15 : 0;
   // a phone: the drums in line with the Explain to Me box's left edge (the frame's 8px and the drums' own 4.5px taken
   // back, plus the column's edge, see usePhoneEdge)
   const edge = usePhoneEdge();
@@ -192,6 +201,8 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
   });
   // The drums' own zoom: back to their normal size (as in the other operations, they shrink only a little, late)
   const drumZoom = drumScaleFor(fit, !mdUp) / fit;
+  // Tablet / desktop (Julian): the drums 5px further right (on screen, at any zoom: this box is drawn fit × drumZoom)
+  const drumShift = { '--fd': `${5 / REM_PX / (fit * drumZoom)}rem` } as CSSProperties;
 
   if (!ready) return <div />;
   const editable = hoverEdit && !run;
@@ -248,7 +259,7 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
     <div className="flex flex-col items-start">
     {/* Zoomed to fit (see `fit`), and at most as wide as the board area, so the rows wrap (the second fraction under
         the first) instead of scrolling */}
-    <div ref={contentRef} data-follow-hold={followHold || undefined} className="flex flex-col items-start" style={{ zoom: fit, marginLeft: mdUp ? `${(leftRoom !== 0 ? -(leftRoom + 71) - 3.5 : 97) / 16 / fit}rem` : `${-(edge + 4) / 16 / fit}rem`, maxWidth: mdUp ? undefined : availableWidth ? Math.max(320, availableWidth - 16) / fit : undefined }}>
+    <div ref={contentRef} data-follow-hold={followHold || undefined} className="flex flex-col items-start" style={{ zoom: fit, marginLeft: mdUp ? `${((leftRoom !== 0 ? -(leftRoom + 71) - 3.5 : 97) - deskNudge) / 16 / fit}rem` : `${-(edge + 4) / 16 / fit}rem`, maxWidth: mdUp ? undefined : availableWidth ? Math.max(320, availableWidth - 16) / fit : undefined }}>
       <div data-expr className="flex flex-wrap items-center justify-start gap-x-5 gap-y-4">
         {/* The problem (Julian): the second fraction under the first, both starting at the same place, each with its
             sign in round brackets and its digit-count drums on its left (half as far from the bracket as before); the
@@ -256,7 +267,7 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
         <div className="grid grid-cols-[auto_auto] items-center">
           <div className="flex items-stretch gap-2">
             {/* How many digits its numerator and denominator have (see OperandDrum) */}
-            <div data-fracdrums className="relative right-[0.28125rem] flex flex-col justify-center gap-3 mr-1" style={{ zoom: drumZoom }}><OperandDrum part="n1" /><OperandDrum part="d1" /></div>
+            <div data-fracdrums className="relative right-[0.28125rem] desk:translate-x-(--fd) flex flex-col justify-center gap-3 mr-1" style={{ zoom: drumZoom, ...drumShift }}><OperandDrum part="n1" /><OperandDrum part="d1" /></div>
             <Bracket side="left" />
             <div className="flex items-center gap-2">{renderSign('n1', num1.sign)}{problemFrac('n1', f1, amp1)}</div>
             <Bracket side="right" />
@@ -266,7 +277,7 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
           <span className="text-cyan-500 -ml-[1.1875rem]"><OpIcon op="addition" /></span>
           <div className="flex items-stretch gap-2">
             {/* How many digits its numerator and denominator have (see OperandDrum) */}
-            <div data-fracdrums className="relative right-[0.28125rem] flex flex-col justify-center gap-3 mr-1" style={{ zoom: drumZoom }}><OperandDrum part="n2" /><OperandDrum part="d2" /></div>
+            <div data-fracdrums className="relative right-[0.28125rem] desk:translate-x-(--fd) flex flex-col justify-center gap-3 mr-1" style={{ zoom: drumZoom, ...drumShift }}><OperandDrum part="n2" /><OperandDrum part="d2" /></div>
             <Bracket side="left" />
             <div className="flex items-center gap-2">{renderSign('n2', num2.sign)}{problemFrac('n2', f2, amp2)}</div>
             <Bracket side="right" />

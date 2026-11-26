@@ -22,7 +22,8 @@ const roundedPath = (pts: [number, number][], r: number | ((corner: [number, num
 
 // Operation tabs: five equal columns below lg (only the name, as on a tablet or desktop: no symbol on a phone, it saves room), one row on the right from lg up.
 // The snake line (see `snake` above) is drawn over them, in an SVG the size of the tab row
-export function OperationTabs({ navRef, activeOp, color, isAnimating, bandInline, onSelect }: { navRef: RefObject<HTMLElement | null>; activeOp: MathOp; color: string; isAnimating: boolean; bandInline: boolean; onSelect: (op: MathOp) => void }): ReactElement {
+// `hidden`: testing mode (Julian): not shown, but its room (and its width, which the steps window's lines up with) stays
+export function OperationTabs({ navRef, activeOp, color, isAnimating, bandInline, onSelect, hidden = false }: { navRef: RefObject<HTMLElement | null>; activeOp: MathOp; color: string; isAnimating: boolean; bandInline: boolean; onSelect: (op: MathOp) => void; hidden?: boolean }): ReactElement {
   // Operation tabs as a "snake": one line that runs down the left edge of the first tab, along its bottom, up between
   // the first two tabs, along the top of the second, down again, along the bottom of the third, and so on, ending with
   // the right edge of the last tab. The active tab's stretch of the line (a U around it) is drawn in its colour.
@@ -77,7 +78,7 @@ export function OperationTabs({ navRef, activeOp, color, isAnimating, bandInline
   }, [activeOp, navRef]);
 
   return (
-    <nav ref={navRef} className={`relative order-2 ${bandInline ? 'lg:order-3' : ''} w-full lg:w-auto land:w-auto! px-0.5 grid grid-cols-5 gap-1 lg:flex lg:justify-end`} aria-label="Operations">
+    <nav ref={navRef} data-enter aria-hidden={hidden || undefined} inert={hidden} className={`${hidden ? 'invisible' : ''} relative order-2 ${bandInline ? 'lg:order-3' : ''} w-full lg:w-auto land:w-auto! px-0.5 grid grid-cols-5 gap-1 lg:flex lg:justify-end`} aria-label="Operations">
       {snake && (
         <svg className="pointer-events-none absolute inset-0 overflow-visible" width={snake.w} height={snake.h} aria-hidden="true">
           {/* The grey line: thin and close to the panel's background (#15161e), discreet but visible */}

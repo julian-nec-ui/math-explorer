@@ -17,11 +17,13 @@ const EDGE_3 = 'md:-mr-[6px]';
 const LAND_QUERY = '(min-width: 48rem) and (max-height: 37.49rem)';
 const subscribeLand = (cb: () => void) => { const q = window.matchMedia(LAND_QUERY); q.addEventListener('change', cb); return () => q.removeEventListener('change', cb); };
 
-export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAnimating, paused, stepDelay, setStepDelay, onTogglePause, canPrev, canNext, onPrev, onNext, seeking, band }: {
+export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAnimating, paused, stepDelay, setStepDelay, onTogglePause, canPrev, canNext, onPrev, onNext, seeking, band, testing = false }: {
   colRef: RefObject<HTMLDivElement | null>; cell: number; timerGap: number; elapsed: number; problem: Problem; isAnimating: boolean;
   paused: boolean; stepDelay: number; setStepDelay: (v: number) => void;
   onTogglePause: () => void;
   canPrev: boolean; canNext: boolean; onPrev: () => void; onNext: () => void; seeking: boolean;
+  // Testing mode (Julian): no step delay and no Pause there, for now
+  testing?: boolean;
   // The control band, when it doesn't fit on the title's row (null otherwise)
   band: ReactNode;
 }): ReactElement {
@@ -60,11 +62,16 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
       const g = sdRef.current, drum = g?.querySelector('.rounded-md'), nav = navRef.current;
       const timer = [...document.querySelectorAll('[role="timer"]')].find(t => t.getBoundingClientRect().width > 0);
       // (not on a phone held sideways: there the timer sits at the column's left, the group just after FLOAT)
-      if (!g || !drum || !nav || !timer || getComputedStyle(g).position !== 'absolute' || window.matchMedia('(min-width: 48rem)').matches) {
+      // (and not while the group isn't shown — testing mode: nothing to measure, and measuring it looped)
+      if (!g || !drum || !nav || !timer || !g.offsetParent || getComputedStyle(g).position !== 'absolute' || window.matchMedia('(min-width: 48rem)').matches) {
         setSdShift(prev => (prev === 0 ? prev : 0)); setNavShift(prev => (prev === 0 ? prev : 0)); return;
       }
       const right = timer.getBoundingClientRect().right;
-      const d = right - drum.getBoundingClientRect().right;
+      // (without the slide it may be in — learning coming back, Julian: it slides in from the left; `translate`, used
+      // here, is apart from that `transform`)
+      const t = getComputedStyle(g).transform;
+      const slide = t && t !== 'none' ? new DOMMatrix(t).m41 : 0;
+      const d = right - (drum.getBoundingClientRect().right - slide);
       setSdShift(prev => (Math.abs(d) < 0.5 ? prev : Math.round((prev + d) * 2) / 2));
       const n = right - nav.getBoundingClientRect().right;
       setNavShift(prev => (Math.abs(n) < 0.5 ? prev : Math.round((prev + n) * 2) / 2));
@@ -108,17 +115,18 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
         </div>
       </div>
       {/* How many digits each number has: now on the board, next to each number (see OperandDrum) */}
+      {/* Fractions are made of whole numbers: no INTEGER / FLOAT there (Julian). From desk up the rest moves up into their
+          row; on a phone their room stays (empty), so the step delay keeps its place on that row, under the elapsed time */}
       {(['integer', 'float'] as NumberType[]).map(t => {
         const active = numberTypes[activeOp] === t;
         return (
           <button
             type="button"
-            // Fractions are made of whole numbers: INTEGER stays on, FLOAT can't be chosen
             disabled={isAnimating || activeOp === 'fractions'}
-            title={activeOp === 'fractions' ? 'Fractions use whole numbers' : undefined}
+            aria-hidden={activeOp === 'fractions' || undefined}
             key={t}
             onClick={() => chooseType(t)}
-            className={`whitespace-nowrap px-2 py-1 rounded-lg text-xs font-bold border cursor-pointer transition-all hover:-translate-y-px hover:shadow-[0_0_10px_rgba(6,182,212,0.35)] disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none ${t === 'float' ? EDGE_3 : ''} ${active ? 'bg-cyan-500/10 border-cyan-500 text-cyan-500 hover:bg-cyan-500/20' : 'border-zinc-700 text-zinc-500 hover:border-cyan-700 hover:text-cyan-300'}`}
+            className={`whitespace-nowrap px-2 py-1 rounded-lg text-xs font-bold border cursor-pointer transition-all hover:-translate-y-px hover:shadow-[0_0_10px_rgba(6,182,212,0.35)] disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none ${t === 'float' ? EDGE_3 : ''} ${activeOp === 'fractions' ? 'invisible desk:hidden' : ''} ${active ? 'bg-cyan-500/10 border-cyan-500 text-cyan-500 hover:bg-cyan-500/20' : 'border-zinc-700 text-zinc-500 hover:border-cyan-700 hover:text-cyan-300'}`}
           >
             {t.toUpperCase()}
           </button>
@@ -130,7 +138,7 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
           next ones take the new delay */}
       {/* (Julian) On a phone it sits on INTEGER / FLOAT's row, 1rem after FLOAT, centred on it (out of the grid, so the
           column stays as wide as INTEGER / FLOAT); Pause comes under it, 4px below the drum */}
-      <div className="col-span-2 mt-1 flex items-center justify-start gap-[0.9375rem] desk:justify-between desk:gap-0 phone:absolute phone:mt-0 phone:top-0 phone:left-[calc(100%+1rem)] phone:h-[1.625rem] phone:whitespace-nowrap" style={sdShift ? { translate: `${sdShift}px 0` } : undefined} ref={sdRef} role="group" aria-label="Step delay">
+      <div data-enter className={`${testing ? 'hidden!' : ''} col-span-2 mt-1 flex items-center justify-start gap-[0.9375rem] desk:justify-between desk:gap-0 phone:absolute phone:mt-0 phone:top-0 phone:left-[calc(100%+1rem)] phone:h-[1.625rem] phone:whitespace-nowrap`} style={sdShift ? { translate: `${sdShift}px 0` } : undefined} ref={sdRef} role="group" aria-label="Step delay">
         <span className="text-[8.8px] font-bold uppercase whitespace-nowrap text-cyan-500">Step delay</span>
         <div className="relative desk:left-[6px]">
           <CountDrum
@@ -154,13 +162,13 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
       {/* Pause / Resume (Julian): freezes the explanation exactly where it is, and goes on from there. Amber
           (Pause) / green (Resume), darker, a metallic gradient from left to right, slightly 3D, with a shadow; pressed, it sinks in and springs
           back. Only while an explanation runs */}
-      <button
+      <button data-enter
         type="button"
         onClick={onTogglePause}
         disabled={!isAnimating || seeking}
         aria-pressed={paused}
         title={paused ? 'Go on from here' : 'Stop for a moment, exactly here'}
-        className={`shrink-0 phone:min-w-[6.75rem] flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-black uppercase tracking-[1.5px] text-white text-shadow-[0_1px_1px_rgba(0,0,0,0.45)] cursor-pointer transition-[transform,box-shadow,filter] duration-150 ease-out shadow-[inset_0_1px_0_rgba(255,255,255,0.45),inset_0_-2px_0_rgba(0,0,0,0.25),0_3px_0_rgba(0,0,0,0.45),0_6px_12px_rgba(0,0,0,0.35)] hover:brightness-110 active:translate-y-0.5 active:scale-[0.97] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-1px_0_rgba(0,0,0,0.25),0_1px_0_rgba(0,0,0,0.45),0_2px_5px_rgba(0,0,0,0.35)] disabled:opacity-40 disabled:cursor-default disabled:hover:brightness-100 disabled:active:translate-y-0 disabled:active:scale-100 ${paused ? 'border-[#145c2a] bg-linear-[90deg,#1d7a3c_0%,#2a9a4e_35%,#4fbf6f_55%,#23864a_80%,#165f30_100%]' : 'border-[#7a5200] bg-linear-[90deg,#b07a00_0%,#d69a0a_35%,#f0bd3a_55%,#c88a00_80%,#946400_100%]'}`}
+        className={`${testing ? 'hidden!' : ''} shrink-0 phone:min-w-[6.75rem] flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-black uppercase tracking-[1.5px] text-white text-shadow-[0_1px_1px_rgba(0,0,0,0.45)] cursor-pointer transition-[transform,box-shadow,filter] duration-150 ease-out shadow-[inset_0_1px_0_rgba(255,255,255,0.45),inset_0_-2px_0_rgba(0,0,0,0.25),0_3px_0_rgba(0,0,0,0.45),0_6px_12px_rgba(0,0,0,0.35)] hover:brightness-110 active:translate-y-0.5 active:scale-[0.97] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-1px_0_rgba(0,0,0,0.25),0_1px_0_rgba(0,0,0,0.45),0_2px_5px_rgba(0,0,0,0.35)] disabled:opacity-40 disabled:cursor-default disabled:hover:brightness-100 disabled:active:translate-y-0 disabled:active:scale-100 ${paused ? 'border-[#145c2a] bg-linear-[90deg,#1d7a3c_0%,#2a9a4e_35%,#4fbf6f_55%,#23864a_80%,#165f30_100%]' : 'border-[#7a5200] bg-linear-[90deg,#b07a00_0%,#d69a0a_35%,#f0bd3a_55%,#c88a00_80%,#946400_100%]'}`}
       >
         {paused ? (
           <svg viewBox="0 0 12 12" className="w-3 h-3" aria-hidden="true"><path d="M3 1.5 10.5 6 3 10.5z" fill="currentColor" /></svg>

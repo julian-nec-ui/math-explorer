@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, ReactElement, RefObject } from 'react';
+import type { CSSProperties, ReactElement, ReactNode, RefObject } from 'react';
 import { EDGE_5 } from './constants';
 
 // Each operation's title is tinted with its tab's colour, fading from left to right
@@ -29,9 +29,11 @@ const TITLE_3D: CSSProperties = {
 // 3D title (same for every operation): metallic light-to-shade gradient on the letters, an extruded
 // edge built from stacked 1px shadows that get darker downwards, and a soft cast shadow. Raised 5px
 // `slotRef`: from lg up a slot as wide as the longest title (MULTIPLICATION), so the control band doesn't move between operations
-export function Title({ slotRef, titleRef, label, color }: { slotRef: RefObject<HTMLDivElement | null>; titleRef: RefObject<HTMLHeadingElement | null>; label: string; color: string }): ReactElement {
+// `under`: what sits 20px under the name, aligned with it on the left (the learning / testing switch, Julian): in the flow on
+// a phone; from desk up hanging under the title's row, so nothing else moves
+export function Title({ slotRef, titleRef, label, color, under }: { slotRef: RefObject<HTMLDivElement | null>; titleRef: RefObject<HTMLHeadingElement | null>; label: string; color: string; under?: ReactNode }): ReactElement {
   return (
-    <div ref={slotRef} className="order-1 shrink-0 lg:w-[24rem] 2xl:w-[27.5rem]">
+    <div ref={slotRef} className="relative order-1 shrink-0 lg:w-[24rem] 2xl:w-[27.5rem]">
     <h1
       ref={titleRef}
       // 10px from the panel's left edge (Julian; see EDGE_5)
@@ -44,6 +46,7 @@ export function Title({ slotRef, titleRef, label, color }: { slotRef: RefObject<
     >
       {label.toUpperCase()}
     </h1>
+    {under && <div className={`${EDGE_5} mt-5 desk:absolute desk:mt-0 desk:left-0 desk:top-[calc(100%+1.25rem)] desk:z-30`}>{under}</div>}
     </div>
   );
 }
