@@ -32,7 +32,9 @@ const Stepper = ({ label, onClick, disabled, children }: { label: string; onClic
 function Setup({ t }: { t: AdditionTest }): ReactElement {
   const groups = groupsOf(t.level);
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4 sm:gap-5">
+      {/* (Julian) on a phone Start test comes right after the level and the timer, high enough to be seen at once; the list
+          of the additions and the last results come after it */}
       <div className="flex flex-col gap-2">
         <span className={LABEL}>Level</span>
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2" role="radiogroup" aria-label="Level">
@@ -45,7 +47,7 @@ function Setup({ t }: { t: AdditionTest }): ReactElement {
           ))}
         </div>
       </div>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 max-md:order-1">
         <span className={LABEL}>{groups.length * PER_GROUP} additions</span>
         <ol className="grid grid-cols-1 sm:grid-cols-[auto_auto] sm:justify-start gap-x-10 gap-y-1 text-sm text-zinc-300">
           {groups.map((g, i) => (
@@ -75,7 +77,7 @@ function Setup({ t }: { t: AdditionTest }): ReactElement {
       </div>
       <div><button type="button" className={START} onClick={t.start}>Start test</button></div>
       {t.history.length > 0 && (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 max-md:order-2">
           <span className={LABEL}>Last results</span>
           <ul className="text-xs text-zinc-400 flex flex-col gap-0.5">
             {t.history.slice(0, 5).map(h => (

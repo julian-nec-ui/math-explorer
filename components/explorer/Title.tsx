@@ -29,7 +29,7 @@ const TITLE_3D: CSSProperties = {
 // 3D title (same for every operation): metallic light-to-shade gradient on the letters, an extruded
 // edge built from stacked 1px shadows that get darker downwards, and a soft cast shadow. Raised 5px
 // `slotRef`: from lg up a slot as wide as the longest title (MULTIPLICATION), so the control band doesn't move between operations
-// `under`: what sits 20px under the name (on a phone 0.5rem, Julian: everything below moves up), aligned with it on the left (the learning / testing switch, Julian): in the flow on
+// `under`: what sits 20px under the name (on a phone 0.3125rem, Julian: everything below moves up), aligned with it on the left (the learning / testing switch, Julian): in the flow on
 // a phone; from desk up hanging under the title's row, so nothing else moves
 export function Title({ slotRef, titleRef, label, color, under }: { slotRef: RefObject<HTMLDivElement | null>; titleRef: RefObject<HTMLHeadingElement | null>; label: string; color: string; under?: ReactNode }): ReactElement {
   return (
@@ -46,7 +46,7 @@ export function Title({ slotRef, titleRef, label, color, under }: { slotRef: Ref
     >
       {label.toUpperCase()}
     </h1>
-    {under && <div className={`${EDGE_5} mt-5 max-md:mt-2 desk:absolute desk:mt-0 desk:left-0 desk:top-[calc(100%+1.25rem)] desk:z-30`}>{under}</div>}
+    {under && <div className={`${EDGE_5} mt-5 max-md:mt-[0.3125rem] desk:absolute desk:mt-0 desk:left-0 desk:top-[calc(100%+1.25rem)] desk:z-30`}>{under}</div>}
     </div>
   );
 }
