@@ -27,7 +27,8 @@ const TITLE_GAP = 1.25; // rem: 20px nominal
 // moves down when learning comes back (Explain to Me / New Numbers / Stop above it), the closing frame doesn't
 let phoneBox: { top: number; left: number; width: number; height: number } | null = null;
 
-export function TestWindow({ label, color, labels, leaving = false, onLeft, children }: { label: string; color: string; labels: string[]; leaving?: boolean; onLeft?: () => void; children?: ReactNode }): ReactElement {
+// `content`: the test itself (addition, Julian); without it the frame only says the test will appear there
+export function TestWindow({ label, color, labels, leaving = false, onLeft, content, children }: { label: string; color: string; labels: string[]; leaving?: boolean; onLeft?: () => void; content?: ReactNode; children?: ReactNode }): ReactElement {
   const markRef = useRef<HTMLDivElement>(null);
   const [wide, setWide] = useState(false);
   const [panel, setPanel] = useState<HTMLElement | null>(null);
@@ -77,7 +78,7 @@ export function TestWindow({ label, color, labels, leaving = false, onLeft, chil
   useEffect(() => { leftRef.current = onLeft; });
   useEffect(() => {
     if (!leaving) return;
-    const id = window.setTimeout(() => leftRef.current?.(), 1300);
+    const id = window.setTimeout(() => leftRef.current?.(), 1800);
     return () => window.clearTimeout(id);
   }, [leaving]);
   const phoneRef = useRef<HTMLDivElement>(null);
@@ -92,9 +93,9 @@ export function TestWindow({ label, color, labels, leaving = false, onLeft, chil
   const onEnd = (e: AnimationEvent<HTMLDivElement>) => { if (leaving && e.target === e.currentTarget) onLeft?.(); };
   const body = (
     <>
-      <div className="flex-1 min-w-0 p-5 flex flex-col gap-2">
+      <div className="steps-scroll flex-1 min-w-0 min-h-0 overflow-y-auto p-5 flex flex-col gap-4">
         <div className="text-xs font-black uppercase tracking-[0.2em]" style={{ color }}>{label} · Test</div>
-        <div className="text-sm text-zinc-400">The test will appear here.</div>
+        {content ?? <div className="text-sm text-zinc-400">The test will appear here.</div>}
       </div>
       {children}
     </>

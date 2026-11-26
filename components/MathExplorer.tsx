@@ -5,7 +5,7 @@
 // (useStepsWindow, StepsWindow), the header (Title, OperationTabs, ActionButtons), the controls (ControlsColumn), the
 // board's frame (BoardView) and the measurements that place them (useLayoutMeasures)
 
-import { useLayoutEffect, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react';
 import { DigitDrums, DrumLayer, useGrownLock, FRAC_PARTS, cleanNumber, numberValue, useCellSize, type DigitDrumsValue, type FractionParts } from './math/shared';
 import { OPERATIONS } from './operations/registry';
 import { ActionButtons } from './explorer/ActionButtons';
@@ -19,6 +19,8 @@ import { StepsWindow } from './explorer/StepsWindow';
 import { Title } from './explorer/Title';
 import { ModeToggle, type Mode } from './explorer/ModeToggle';
 import { TestWindow } from './explorer/TestWindow';
+import { AdditionTestView } from './testing/AdditionTest';
+import { useAdditionTest } from './testing/useAdditionTest';
 import { useExplanation } from './explorer/useExplanation';
 import { useColBottom, useHeaderBand, usePageRoom, useScrollFollow, useTimerGap, useViewSize } from './explorer/useLayoutMeasures';
 import { useProblem } from './explorer/useProblem';
@@ -46,6 +48,13 @@ export default function MathExplorer(): ReactElement {
   // (switching clears what the last explanation left: its steps, the counter, the board)
   // Back to learning (Julian): the test frame doesn't vanish at once, it closes towards the right and fades (TestWindow
   // `leaving`), over the board that is already back; then it is gone
+  // The addition test (Julian; the other operations: later). A fresh test (setup) each time testing mode is entered or
+  // the operation changes
+  const test = useAdditionTest();
+  const testOp = activeOp === 'addition';
+  const resetTest = test.reset;
+  useEffect(() => { if (testing) resetTest(); }, [testing, activeOp, resetTest]);
+  const testContent = testOp ? <AdditionTestView t={test} /> : undefined;
   const [testLeaving, setTestLeaving] = useState(false);
   // …and learning comes in (Julian): nothing of it shows at first; when the frame is half closed, the numbers fade in
   // exactly where they will stay ("f": they don't move — the board places its digits from measured positions, a moving
@@ -73,8 +82,8 @@ export default function MathExplorer(): ReactElement {
       const r = el.getBoundingClientRect();
       el.dataset.enterDir = ['l', 'r', 'f'].includes(el.dataset.enter ?? '') ? el.dataset.enter : r.left + r.width / 2 < mid - 1 ? 'l' : 'r';
     }
-    // done (0.5s wait + 1s slide): measured layouts that saw the moving boxes measure again
-    const id = window.setTimeout(() => { setEntering(false); window.dispatchEvent(new Event('resize')); }, 1600);
+    // done (0.75s wait + 0.75s slide = 1.5s, as long as the frame's own entrance and exit, Julian): measured layouts that saw the moving boxes measure again
+    const id = window.setTimeout(() => { setEntering(false); window.dispatchEvent(new Event('resize')); }, 1700);
     return () => { window.clearTimeout(id); for (const el of els) delete el.dataset.enterDir; };
   }, [entering]);
 
@@ -219,17 +228,17 @@ export default function MathExplorer(): ReactElement {
                 colRef={colRef}
                 cell={cell}
                 timerGap={timerGap}
-                elapsed={x.elapsed}
+                elapsed={testing ? (testOp ? test.elapsed : 0) : x.elapsed}
                 problem={problem}
                 isAnimating={isAnimating}
                 paused={x.paused}
                 stepDelay={stepDelay}
                 setStepDelay={setStepDelay}
                 onTogglePause={x.togglePause}
-                canPrev={x.canPrev && !testing}
-                canNext={x.canNext && !testing}
-                onPrev={x.prevStep}
-                onNext={x.nextStep}
+                canPrev={testing ? testOp && test.canPrev : x.canPrev}
+                canNext={testing ? testOp && test.canNext : x.canNext}
+                onPrev={testing ? test.prev : x.prevStep}
+                onNext={testing ? test.next : x.nextStep}
                 seeking={x.seeking}
                 testing={testing}
                 band={bandInline || testing ? null : (
@@ -256,9 +265,9 @@ export default function MathExplorer(): ReactElement {
               {/* The active operation's board (see operations/registry). Multiplication and division sit in a padded frame and
                   start near the top of the panel, just below the title, at the same height for every operation */}
               {testing ? (
-                <TestWindow label={activeConfig.label} color={activeConfig.color} labels={OP_LABELS}>
+                <TestWindow label={activeConfig.label} color={activeConfig.color} labels={OP_LABELS} content={testContent}>
                   {/* Testing (Julian): the explanation window inside the test frame */}
-                  <StepsWindow sw={sw} steps={x.steps} status={x.status} isAnimating={isAnimating} ready={ready} label={activeConfig.label} idle="Ready to test..." inFrame />
+                  <StepsWindow sw={sw} steps={testOp ? test.log : []} status="" isAnimating={false} ready label={activeConfig.label} idle="Ready to test..." inFrame />
                 </TestWindow>
               ) : (
               <DigitDrums.Provider value={drums}>
@@ -280,7 +289,7 @@ export default function MathExplorer(): ReactElement {
               </DigitDrums.Provider>
               )}
               {!testing && testLeaving && (
-                <TestWindow label={activeConfig.label} color={activeConfig.color} labels={OP_LABELS} leaving onLeft={() => setTestLeaving(false)} />
+                <TestWindow label={activeConfig.label} color={activeConfig.color} labels={OP_LABELS} content={testContent} leaving onLeft={() => setTestLeaving(false)} />
               )}
             </div>
 

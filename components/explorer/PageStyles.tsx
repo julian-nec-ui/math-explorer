@@ -41,7 +41,7 @@ export function PageStyles(): ReactElement {
           70% { opacity: 1; transform: scale(1.025); animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1); }
           100% { opacity: 1; transform: scale(1); }
         }
-        .animate-test-in { animation: testIn 1.2s forwards; }
+        .animate-test-in { animation: testIn 1.5s forwards; }
         /* …and back to learning (Julian): it closes from the left towards the right (its left edge slides over to the
            right one; clipped, so the text isn't squeezed) while it fades out */
         @keyframes testOut {
@@ -52,12 +52,12 @@ export function PageStyles(): ReactElement {
            slowly from its side and fades in. Only \`from\`: they end on their own look (Pause stays dimmed when disabled) */
         @keyframes enterFromLeft { from { opacity: 0; transform: translateX(-2.5rem); } }
         @keyframes enterFromRight { from { opacity: 0; transform: translateX(2.5rem); } }
-        [data-entering] [data-enter-dir="l"] { animation: enterFromLeft 1s cubic-bezier(0.22, 1, 0.36, 1) 0.5s both; }
-        [data-entering] [data-enter-dir="r"] { animation: enterFromRight 1s cubic-bezier(0.22, 1, 0.36, 1) 0.5s both; }
+        [data-entering] [data-enter-dir="l"] { animation: enterFromLeft 0.75s cubic-bezier(0.22, 1, 0.36, 1) 0.75s both; }
+        [data-entering] [data-enter-dir="r"] { animation: enterFromRight 0.75s cubic-bezier(0.22, 1, 0.36, 1) 0.75s both; }
         @keyframes enterFade { from { opacity: 0; } }
-        [data-entering] [data-enter-dir="f"] { animation: enterFade 1s cubic-bezier(0.33, 0, 0.2, 1) 0.5s both; }
+        [data-entering] [data-enter-dir="f"] { animation: enterFade 0.75s cubic-bezier(0.33, 0, 0.2, 1) 0.75s both; }
         [data-entering] { overflow-x: clip; }
-        .animate-test-out { animation: testOut 1s cubic-bezier(0.65, 0, 0.35, 1) forwards; pointer-events: none; }
+        .animate-test-out { animation: testOut 1.5s cubic-bezier(0.65, 0, 0.35, 1) forwards; pointer-events: none; }
         /* Steps window scrollbar: 8px, no track, a rounded #456175 thumb, always shown once the steps overflow. The track keeps
            16px clear at the top and bottom, so it stops where the window's rounded corners begin */
         .steps-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
