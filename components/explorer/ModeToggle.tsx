@@ -16,7 +16,7 @@ export function ModeToggle({ mode, onChange, disabled = false }: { mode: Mode; o
       aria-label={testing ? 'Testing mode (switch to learning mode)' : 'Learning mode (switch to testing mode)'}
       disabled={disabled}
       onClick={() => onChange(testing ? 'learning' : 'testing')}
-      className="relative grid grid-cols-2 w-[13rem] h-[1.875rem] p-[3px] rounded-full border border-zinc-700 bg-zinc-900/80 shadow-[inset_0_1px_3px_rgba(0,0,0,0.6)] cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-cyan-400"
+      className="relative grid grid-cols-2 w-[13rem] h-[1.875rem] p-[3px] rounded-full border border-zinc-700 bg-zinc-900/80 shadow-[inset_0_1px_3px_rgba(0,0,0,0.6)] cursor-pointer disabled:cursor-default disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-cyan-400"
     >
       {/* the knob: under the active half, sliding from one to the other */}
       <span

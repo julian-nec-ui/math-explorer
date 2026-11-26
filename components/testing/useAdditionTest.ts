@@ -98,7 +98,7 @@ export function useAdditionTest() {
     const ok = value === q.a + q.b;
     const given = answers.map((v, i) => (i === index ? value : v));
     setAnswers(given);
-    setLog(l => [...l, `${index + 1}. ${q.a} + ${q.b} = ${value} ${ok ? '✓' : `✗ (${q.a + q.b})`}`]);
+    setLog(l => [...l, `${index + 1}. ${q.a} + ${q.b} = ${value} ${ok ? '✓' : `(correct: ${q.a + q.b})`}`]);
     if (index + 1 >= questions.length) finish(given, false);
     else setIndex(index + 1);
     return ok;

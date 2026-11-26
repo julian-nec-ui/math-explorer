@@ -8,10 +8,10 @@ import { MAX_MINUTES, MIN_MINUTES, type AdditionTest } from './useAdditionTest';
 // The addition test inside the test frame (Julian): set up (level, timer, start) → the questions one by one → the
 // result (score, every question; Retake / New Test). See useAdditionTest for the rules.
 
-const PILL = 'px-3 py-1.5 rounded-lg border text-xs font-black uppercase tracking-[1.5px] cursor-pointer transition-colors disabled:cursor-not-allowed';
+const PILL = 'px-3 py-1.5 rounded-lg border text-xs font-black uppercase tracking-[1.5px] cursor-pointer transition-colors disabled:cursor-default';
 // 3D push buttons (Julian), like Pause: a left-to-right gradient (darker edges, a light band a little right of the
 // middle), a light top edge, a dark bottom edge and a drop under it; pressed, it sinks 2px and its drop shrinks
-const PUSH = 'whitespace-nowrap px-3 sm:px-4 py-2 rounded-lg border text-xs font-black uppercase tracking-[1.5px] text-white text-shadow-[0_1px_1px_rgba(0,0,0,0.45)] cursor-pointer transition-[transform,box-shadow,filter] duration-150 ease-out shadow-[inset_0_1px_0_rgba(255,255,255,0.45),inset_0_-2px_0_rgba(0,0,0,0.25),0_3px_0_rgba(0,0,0,0.45),0_6px_12px_rgba(0,0,0,0.35)] hover:brightness-110 active:translate-y-0.5 active:scale-[0.97] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-1px_0_rgba(0,0,0,0.25),0_1px_0_rgba(0,0,0,0.45),0_2px_5px_rgba(0,0,0,0.35)] disabled:opacity-40 disabled:cursor-not-allowed';
+const PUSH = 'whitespace-nowrap px-3 sm:px-4 py-2 rounded-lg border text-xs font-black uppercase tracking-[1.5px] text-white text-shadow-[0_1px_1px_rgba(0,0,0,0.45)] cursor-pointer transition-[transform,box-shadow,filter] duration-150 ease-out shadow-[inset_0_1px_0_rgba(255,255,255,0.45),inset_0_-2px_0_rgba(0,0,0,0.25),0_3px_0_rgba(0,0,0,0.45),0_6px_12px_rgba(0,0,0,0.35)] hover:brightness-110 active:translate-y-0.5 active:scale-[0.97] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-1px_0_rgba(0,0,0,0.25),0_1px_0_rgba(0,0,0,0.45),0_2px_5px_rgba(0,0,0,0.35)] disabled:opacity-40 disabled:cursor-default';
 // Start test: #00994c (Julian)
 const START = `${PUSH} border-[#00552a] bg-linear-[90deg,#006b35_0%,#00994c_35%,#3fc683_55%,#008a44_80%,#005e2e_100%]`;
 // Cancel test: #c70050 (Julian)
@@ -19,10 +19,14 @@ const CANCEL = `${PUSH} border-[#6e002c] bg-linear-[90deg,#8f003a_0%,#c70050_35%
 // Check, Retake: the amber of Pause, the same push
 const PRIMARY = `${PUSH} border-[#7a5200] bg-linear-[90deg,#b07a00_0%,#d69a0a_35%,#f0bd3a_55%,#c88a00_80%,#946400_100%]`;
 const SECONDARY = `${PILL} border-zinc-600 text-zinc-200 bg-zinc-800 hover:bg-zinc-700`;
+// Wrong / right (Julian): his red #c80453 (also the wrong questions' background) and his green #00994c; a red ✗ only
+// after a wrong answer in the review
+const WRONG = '#c80453';
+const RIGHT = '#00994c';
 const LABEL = 'text-[10px] font-bold uppercase tracking-wider text-zinc-400';
 
 const Stepper = ({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled: boolean; children: string }) => (
-  <button type="button" aria-label={label} onClick={onClick} disabled={disabled} className="w-8 h-8 rounded-lg border border-zinc-600 bg-zinc-800 text-zinc-100 text-lg font-black leading-none cursor-pointer hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed">{children}</button>
+  <button type="button" aria-label={label} onClick={onClick} disabled={disabled} className="w-8 h-8 rounded-lg border border-zinc-600 bg-zinc-800 text-zinc-100 text-lg font-black leading-none cursor-pointer hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-default">{children}</button>
 );
 
 function Setup({ t }: { t: AdditionTest }): ReactElement {
@@ -84,13 +88,19 @@ function Setup({ t }: { t: AdditionTest }): ReactElement {
   );
 }
 
-// An addition written in a column, as on the board: the two numbers right-aligned, + before the second, a line under
-const Column = ({ q, answer }: { q: Question; answer?: ReactElement }) => (
-  <div className="inline-grid grid-cols-[auto_auto] gap-x-3 font-mono font-black text-[2rem] leading-tight text-zinc-100 tabular-nums">
+// An addition written in a column, as on the board: the two numbers right-aligned, + before the second, a line under.
+// `cols` (Julian): the numbers' column is as wide as the longest result of the whole test, for every question, so the
+// column only grows to the left inside it and what is beside it (the answer box, the buttons, the text) never moves
+// the numbers' right edge in line with the answer box's digits (its 1px border and 0.25rem padding)
+const NUM = 'text-right tracking-[0.15em] pr-[calc(0.25rem+1px)]';
+const numbersWidth = (cols: number): string => `calc(${cols}ch + ${cols * 0.15}em + 0.75rem)`;
+export const widestResult = (qs: Question[]): number => Math.max(1, ...qs.map(q => String(q.a + q.b).length));
+const Column = ({ q, cols, answer }: { q: Question; cols: number; answer?: ReactElement }) => (
+  <div className="inline-grid gap-x-3 font-mono font-black text-[2rem] leading-tight text-zinc-100 tabular-nums" style={{ gridTemplateColumns: `auto ${numbersWidth(cols)}` }}>
     <span />
-    <span className="text-right tracking-[0.15em]">{q.a}</span>
+    <span className={NUM}>{q.a}</span>
     <span className="text-cyan-400">+</span>
-    <span className="text-right tracking-[0.15em]">{q.b}</span>
+    <span className={NUM}>{q.b}</span>
     <span className="col-span-2 h-[3px] my-1 rounded-full bg-zinc-500" />
     <span />
     <span className="text-right">{answer}</span>
@@ -129,10 +139,10 @@ function Running({ t }: { t: AdditionTest }): ReactElement {
         <div className="h-full bg-amber-500 transition-[width] duration-300" style={{ width: `${(t.index / t.questions.length) * 100}%` }} />
       </div>
       <form className="flex flex-wrap items-end gap-4" onSubmit={e => { e.preventDefault(); send(); }}>
-        <Column q={q} answer={
+        <Column q={q} cols={widestResult(t.questions)} answer={
           <input ref={input} value={value} inputMode="numeric" autoComplete="off" aria-label={`${q.a} plus ${q.b} equals`}
             onChange={e => setValue(e.target.value.replace(/\D/g, '').slice(0, q.digits + 1))}
-            className="w-[5ch] bg-zinc-950 border border-zinc-600 focus:border-amber-400 outline-none rounded-md text-right font-mono font-black text-[2rem] text-amber-200 px-1 tracking-[0.15em]" />
+            className="w-full bg-zinc-950 border border-zinc-600 focus:border-amber-400 outline-none rounded-md text-right font-mono font-black text-[2rem] text-amber-200 px-1 tracking-[0.15em]" />
         } />
         <div className="flex items-center gap-2 sm:gap-3">
           <button type="submit" className={PRIMARY} disabled={value === ''}>Check</button>
@@ -141,8 +151,8 @@ function Running({ t }: { t: AdditionTest }): ReactElement {
       </form>
       <div className="min-h-6 text-sm" aria-live="polite">
         {last && (last.ok
-          ? <span className="text-emerald-400 font-bold">✓ {last.q.a} + {last.q.b} = {last.value}</span>
-          : <span className="text-rose-400 font-bold">✗ {last.q.a} + {last.q.b} = {last.q.a + last.q.b}, not {last.value}</span>)}
+          ? <span className="font-bold" style={{ color: RIGHT }}>✓ {last.q.a} + {last.q.b} = {last.value}</span>
+          : <span className="font-bold text-zinc-300">{last.q.a} + {last.q.b} = <span style={{ color: RIGHT }}>{last.q.a + last.q.b}</span>, not <span style={{ color: WRONG }}>{last.value}</span></span>)}
       </div>
     </div>
   );
@@ -162,18 +172,19 @@ function Done({ t }: { t: AdditionTest }): ReactElement {
       <div className="flex flex-wrap gap-1.5" role="list" aria-label="Questions">
         {t.questions.map((_, i) => (
           <button key={i} type="button" role="listitem" onClick={() => t.setReview(i)} aria-current={i === t.review || undefined}
-            className={`w-8 h-8 rounded-md text-xs font-black cursor-pointer border ${right(i) ? 'border-emerald-600 bg-emerald-500/15 text-emerald-300' : t.answers[i] === null ? 'border-zinc-600 bg-zinc-800 text-zinc-400' : 'border-rose-600 bg-rose-500/15 text-rose-300'} ${i === t.review ? 'ring-2 ring-amber-400' : ''}`}>
+            className={`w-[2.4rem] h-[2.4rem] rounded-md text-[0.9rem] font-black cursor-pointer border ${right(i) ? 'border-emerald-600 bg-emerald-500/15 text-emerald-300' : t.answers[i] === null ? 'border-zinc-600 bg-zinc-800 text-zinc-400' : 'border-[#8f0339] bg-[#c80453] text-white'} ${i === t.review ? 'ring-2 ring-amber-400' : ''}`}>
             {i + 1}
           </button>
         ))}
       </div>
       {q && (
         <div className="flex flex-wrap items-end gap-6">
-          <Column q={q} answer={<span className={right(t.review) ? 'text-emerald-300' : 'text-rose-300'}>{q.a + q.b}</span>} />
-          <div className="text-sm text-zinc-300 flex flex-col gap-1 pb-1">
-            <span className="text-amber-300 text-xs">Question {t.review + 1} · {groupLabel(q)}</span>
-            <span>Your answer: <b className={right(t.review) ? 'text-emerald-300' : 'text-rose-300'}>{given ?? '—'}</b> {right(t.review) ? '✓' : '✗'}</span>
-            <span className="text-xs text-zinc-500">Prev / Next go through the questions</span>
+          <Column q={q} cols={widestResult(t.questions)} answer={<span className={`block ${NUM}`} style={{ color: RIGHT }}>{q.a + q.b}</span>} />
+          {/* (Julian) twice the size it was (on a phone a little less, so it doesn't break into many lines); a red ✗ after a wrong answer */}
+          <div className="text-[1.25rem] sm:text-[1.75rem] leading-snug text-zinc-300 flex flex-col gap-1 pb-1">
+            <span className="text-amber-300 text-[1rem] sm:text-[1.5rem]">Question {t.review + 1} · {groupLabel(q)}</span>
+            <span className="whitespace-nowrap">Your answer: <b style={{ color: right(t.review) ? RIGHT : WRONG }}>{given ?? '—'}</b>{right(t.review) ? <b style={{ color: RIGHT }}> ✓</b> : <b style={{ color: WRONG }}> ✗</b>}</span>
+            <span className="text-[0.9rem] sm:text-[1.5rem] text-zinc-500">Prev / Next go through the questions</span>
           </div>
         </div>
       )}
