@@ -175,10 +175,13 @@ export default function MathExplorer(): ReactElement {
     : { value: k => problem.digitCounts[activeOp][k === 'n1' || k === 'd1' ? 'n1' : 'n2'], max: 12, set: (k, v) => problem.handleDigitCountChange(k === 'n1' || k === 'd1' ? 'n1' : 'n2', v), disabled: isAnimating, label: k => `${k.toUpperCase()} Digits`, parts: ['n1', 'n2'] };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col md:flex-row font-sans">
+    <div className="min-h-dvh bg-zinc-950 text-zinc-100 flex flex-col md:flex-row font-sans">
+      {/* min-h-dvh, not min-h-screen (Julian's phone): on a real phone 100vh is the height with the browser's address bar
+          hidden, taller than what is shown; the panel (min-h-dvh) was centred in it, leaving a dark gap above it. And on a
+          phone / tablet the panel starts at the top (justify-start) */}
       <PageStyles />
 
-      <main className="flex-1 min-w-0 desk:py-[1.5vh] flex flex-col items-center justify-center">
+      <main className="flex-1 min-w-0 desk:py-[1.5vh] flex flex-col items-center justify-start desk:justify-center">
         <div className="w-full desk:w-[99vw]">
           {/* Panel, background #15161e with a discreet gradient of close shades.
               Phone (also held sideways): fills the screen edge to edge and the page scrolls (header, board, then the steps);
