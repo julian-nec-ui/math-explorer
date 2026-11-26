@@ -55,6 +55,9 @@ export default function MathExplorer(): ReactElement {
   const resetTest = test.reset;
   useEffect(() => { if (testing) resetTest(); }, [testing, activeOp, resetTest]);
   const testContent = testOp ? <AdditionTestView t={test} /> : undefined;
+  // A test under way (Julian, phone): the frame covers the panel, which is then exactly the visible height whichever way
+  // the screen is — with the keyboard open a phone held upright is wider than tall ("landscape" for media queries)
+  const testCover = testOp && test.phase === 'running';
   const [testLeaving, setTestLeaving] = useState(false);
   // …and learning comes in (Julian): nothing of it shows at first; when the frame is half closed, the numbers fade in
   // exactly where they will stay ("f": they don't move — the board places its digits from measured positions, a moving
@@ -199,7 +202,7 @@ export default function MathExplorer(): ReactElement {
               bottom (min-h-dvh, border included): the page only scrolls when the content is taller (Julian).
               Tablet and desktop (`desk`: at least 48rem wide and 37.5rem tall, see globals.css): 99% of the screen width
               and 97% of its height; the board scrolls inside the middle area */}
-          <div ref={panelRef} data-panel data-entering={entering || undefined} className={`${PHONE_TEST_FIT(testing, 'max-md:portrait:h-dvh max-md:portrait:overflow-hidden')} relative min-h-dvh desk:min-h-0 desk:h-[97vh] flex flex-col gap-3 2xl:gap-0 bg-linear-to-br from-[#191a23] via-[#15161e] to-[#111219] border-zinc-800 border rounded-2xl phone:overflow-clip p-3 sm:p-5 md:p-6 lg:p-8 md:pr-2.5 lg:pr-2.5 land:pt-3! phone:pb-0! backdrop-blur-xl shadow-2xl`}>
+          <div ref={panelRef} data-panel data-entering={entering || undefined} className={`${PHONE_TEST_FIT(testing, 'max-md:portrait:h-dvh max-md:portrait:overflow-hidden')} ${testCover ? 'max-md:h-dvh max-md:overflow-hidden' : ''} relative min-h-dvh desk:min-h-0 desk:h-[97vh] flex flex-col gap-3 2xl:gap-0 bg-linear-to-br from-[#191a23] via-[#15161e] to-[#111219] border-zinc-800 border rounded-2xl phone:overflow-clip p-3 sm:p-5 md:p-6 lg:p-8 md:pr-2.5 lg:pr-2.5 land:pt-3! phone:pb-0! backdrop-blur-xl shadow-2xl`}>
             {/* 3D title (same for every operation): metallic light-to-shade gradient on the letters, an extruded
                 edge built from stacked 1px shadows that get darker downwards, and a soft cast shadow. Raised 5px */}
             {/* Header. The operation tabs always keep the same look (one row, full names) at the top right.
@@ -265,7 +268,7 @@ export default function MathExplorer(): ReactElement {
               {/* The active operation's board (see operations/registry). Multiplication and division sit in a padded frame and
                   start near the top of the panel, just below the title, at the same height for every operation */}
               {testing ? (
-                <TestWindow label={activeConfig.label} color={activeConfig.color} labels={OP_LABELS} content={testContent} cover={testOp && test.phase === 'running'}>
+                <TestWindow label={activeConfig.label} color={activeConfig.color} labels={OP_LABELS} content={testContent} cover={testCover}>
                   {/* Testing (Julian): the explanation window inside the test frame */}
                   <StepsWindow sw={sw} steps={testOp ? test.log : []} status="" isAnimating={false} ready label={activeConfig.label} idle="Ready to test..." inFrame />
                 </TestWindow>

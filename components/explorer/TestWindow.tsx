@@ -28,7 +28,8 @@ const TITLE_GAP = 1.25; // rem: 20px nominal
 let phoneBox: { top: number; left: number; width: number; height: number } | null = null;
 
 // `content`: the test itself (addition, Julian); without it the frame only says the test will appear there
-// `cover` (a test under way, Julian): on a phone held upright the frame covers the whole panel (3px in), over the title and
+// `cover` (a test under way, Julian): on a phone (upright or sideways — with the keyboard open an upright phone is
+// wider than tall) the frame covers the whole panel (3px in), over the title and
 // the controls, so the question, the answer box, Check / Cancel test, the progress and the steps strip all fit above the
 // keyboard. The same element, only `fixed` (the panel's backdrop filter makes it the frame's containing block), so the
 // frame isn't mounted again and its entrance animation doesn't play again
@@ -97,7 +98,7 @@ export function TestWindow({ label, color, labels, leaving = false, onLeft, cont
   const onEnd = (e: AnimationEvent<HTMLDivElement>) => { if (leaving && e.target === e.currentTarget) onLeft?.(); };
   const body = (
     <>
-      <div className="steps-scroll flex-1 min-w-0 min-h-0 overflow-y-auto p-5 flex flex-col gap-4">
+      <div className="steps-scroll flex-1 min-w-0 min-h-0 overflow-y-auto p-5 max-md:pt-3 max-md:pb-3 flex flex-col gap-4 max-md:gap-2">
         <div className="text-xs font-black uppercase tracking-[0.2em]" style={{ color }}>{label} · Test</div>
         {content ?? <div className="text-sm text-zinc-400">The test will appear here.</div>}
       </div>
@@ -120,7 +121,7 @@ export function TestWindow({ label, color, labels, leaving = false, onLeft, cont
         </div>,
         panel,
       )) : (
-        <div ref={phoneRef} data-test-frame onAnimationEnd={onEnd} style={{ '--test-r': '0.8125rem' } as CSSProperties} className={`mt-[0.1875rem] mb-[0.1875rem] mr-[0.1875rem] -ml-[0.125rem] flex-1 min-w-0 self-stretch min-h-[12rem] max-md:portrait:min-h-0 ${cover ? 'max-md:portrait:fixed max-md:portrait:inset-[0.1875rem] max-md:portrait:z-40 max-md:portrait:m-0! max-md:portrait:bg-[#17181f]' : ''} rounded-[0.8125rem] ${look}`}>
+        <div ref={phoneRef} data-test-frame onAnimationEnd={onEnd} style={{ '--test-r': '0.8125rem' } as CSSProperties} className={`mt-[0.1875rem] mb-[0.1875rem] mr-[0.1875rem] -ml-[0.125rem] flex-1 min-w-0 self-stretch min-h-[12rem] max-md:portrait:min-h-0 ${cover ? 'max-md:fixed max-md:inset-[0.1875rem] max-md:z-40 max-md:m-0! max-md:bg-[#17181f] max-md:min-h-0' : ''} rounded-[0.8125rem] ${look}`}>
           {body}
         </div>
       )}

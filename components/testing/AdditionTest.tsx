@@ -11,7 +11,7 @@ import { MAX_MINUTES, MIN_MINUTES, type AdditionTest } from './useAdditionTest';
 const PILL = 'px-3 py-1.5 rounded-lg border text-xs font-black uppercase tracking-[1.5px] cursor-pointer transition-colors disabled:cursor-default';
 // 3D push buttons (Julian), like Pause: a left-to-right gradient (darker edges, a light band a little right of the
 // middle), a light top edge, a dark bottom edge and a drop under it; pressed, it sinks 2px and its drop shrinks
-const PUSH = 'whitespace-nowrap px-3 sm:px-4 py-2 rounded-lg border text-xs font-black uppercase tracking-[1.5px] text-white text-shadow-[0_1px_1px_rgba(0,0,0,0.45)] cursor-pointer transition-[transform,box-shadow,filter] duration-150 ease-out shadow-[inset_0_1px_0_rgba(255,255,255,0.45),inset_0_-2px_0_rgba(0,0,0,0.25),0_3px_0_rgba(0,0,0,0.45),0_6px_12px_rgba(0,0,0,0.35)] hover:brightness-110 active:translate-y-0.5 active:scale-[0.97] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-1px_0_rgba(0,0,0,0.25),0_1px_0_rgba(0,0,0,0.45),0_2px_5px_rgba(0,0,0,0.35)] disabled:opacity-40 disabled:cursor-default';
+const PUSH = 'whitespace-nowrap px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg border text-xs font-black uppercase tracking-[1.5px] text-white text-shadow-[0_1px_1px_rgba(0,0,0,0.45)] cursor-pointer transition-[transform,box-shadow,filter] duration-150 ease-out shadow-[inset_0_1px_0_rgba(255,255,255,0.45),inset_0_-2px_0_rgba(0,0,0,0.25),0_3px_0_rgba(0,0,0,0.45),0_6px_12px_rgba(0,0,0,0.35)] hover:brightness-110 active:translate-y-0.5 active:scale-[0.97] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-1px_0_rgba(0,0,0,0.25),0_1px_0_rgba(0,0,0,0.45),0_2px_5px_rgba(0,0,0,0.35)] disabled:opacity-40 disabled:cursor-default';
 // Start test: #00994c (Julian)
 const START = `${PUSH} border-[#00552a] bg-linear-[90deg,#006b35_0%,#00994c_35%,#3fc683_55%,#008a44_80%,#005e2e_100%]`;
 // Cancel test: #c70050 (Julian)
@@ -98,7 +98,7 @@ const NUM = 'text-right tracking-[0.15em] pr-[calc(0.25rem+1px)]';
 const numbersWidth = (cols: number): string => `calc(${cols}ch + ${cols * 0.15}em + 0.75rem)`;
 export const widestResult = (qs: Question[]): number => Math.max(1, ...qs.map(q => String(q.a + q.b).length));
 const Column = ({ q, cols, answer }: { q: Question; cols: number; answer?: ReactElement }) => (
-  <div className="inline-grid gap-x-3 font-mono font-black text-[2rem] leading-tight text-zinc-100 tabular-nums" style={{ gridTemplateColumns: `auto ${numbersWidth(cols)}` }}>
+  <div className="inline-grid gap-x-3 font-mono font-black text-[1.75rem] sm:text-[2rem] leading-none sm:leading-tight text-zinc-100 tabular-nums" style={{ gridTemplateColumns: `auto ${numbersWidth(cols)}` }}>
     <span />
     <span className={NUM}>{q.a}</span>
     <span className="text-cyan-400">+</span>
@@ -118,8 +118,11 @@ function Running({ t }: { t: AdditionTest }): ReactElement {
   // the answer box gets the keyboard; on a small screen the question, the box and the buttons are scrolled into view
   useEffect(() => {
     input.current?.focus({ preventScroll: true });
-    const id = window.setTimeout(() => form.current?.scrollIntoView({ block: 'nearest' }), 350);
-    return () => window.clearTimeout(id);
+    const show = () => form.current?.scrollIntoView({ block: 'nearest' });
+    const id = window.setTimeout(show, 350);
+    // (and again when the keyboard opens or closes: the page changes height)
+    window.addEventListener('resize', show);
+    return () => { window.clearTimeout(id); window.removeEventListener('resize', show); };
   }, [t.index]);
   if (!q) return <></>;
   const send = () => {
@@ -130,27 +133,29 @@ function Running({ t }: { t: AdditionTest }): ReactElement {
     setValue('');
   };
   return (
-    <div className="flex flex-col gap-3 sm:gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-baseline gap-3">
-          <span className="text-sm font-black text-zinc-100">Question {t.index + 1} / {t.questions.length}</span>
-          <span className="text-xs text-amber-300">{groupLabel(q)}</span>
+    // (Julian, phone) compact, so that everything fits above the keyboard: the question and its group on two short lines
+    // with the time left beside them (no label, a little smaller), smaller gaps
+    <div className="flex flex-col gap-2 sm:gap-4">
+      <div className="flex sm:flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-baseline gap-x-3">
+          <span className="text-sm font-black text-zinc-100 whitespace-nowrap">Question {t.index + 1} / {t.questions.length}</span>
+          <span className="text-xs text-amber-300 whitespace-nowrap">{groupLabel(q)}</span>
         </div>
         {t.remaining !== null && (
           <div className="flex items-center gap-2">
-            <span className={LABEL}>Time left</span>
-            <SevenSeg text={formatElapsed(t.remaining)} label={`Time left ${formatElapsed(t.remaining)}`} />
+            <span className={`${LABEL} whitespace-nowrap max-md:hidden`}>Time left</span>
+            <div className="max-md:[zoom:0.8]"><SevenSeg text={formatElapsed(t.remaining)} label={`Time left ${formatElapsed(t.remaining)}`} /></div>
           </div>
         )}
       </div>
       <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden" aria-hidden="true">
         <div className="h-full bg-amber-500 transition-[width] duration-300" style={{ width: `${(t.index / t.questions.length) * 100}%` }} />
       </div>
-      <form ref={form} className="flex flex-wrap items-end gap-x-4 gap-y-3" onSubmit={e => { e.preventDefault(); send(); }}>
+      <form ref={form} className="flex flex-wrap items-end gap-x-3 sm:gap-x-4 gap-y-2 sm:gap-y-3" onSubmit={e => { e.preventDefault(); send(); }}>
         <Column q={q} cols={widestResult(t.questions)} answer={
           <input ref={input} value={value} inputMode="numeric" autoComplete="off" aria-label={`${q.a} plus ${q.b} equals`}
             onChange={e => setValue(e.target.value.replace(/\D/g, '').slice(0, q.digits + 1))}
-            className="w-full bg-zinc-950 border border-zinc-600 focus:border-amber-400 outline-none rounded-md text-right font-mono font-black text-[2rem] text-amber-200 px-1 tracking-[0.15em]" />
+            className="w-full max-md:-ml-[0.625rem] max-md:w-[calc(100%+0.625rem)] bg-zinc-950 border border-zinc-600 focus:border-amber-400 outline-none rounded-md text-right font-mono font-black text-[1.75rem] sm:text-[2rem] leading-none sm:leading-normal py-1 sm:py-0 text-amber-200 px-1 tracking-[0.15em]" />
         } />
         <div className="flex items-center gap-2 sm:gap-3">
           <button type="submit" className={PRIMARY} disabled={value === ''}>Check</button>
