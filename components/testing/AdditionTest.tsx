@@ -133,18 +133,31 @@ function Running({ t }: { t: AdditionTest }): ReactElement {
     setValue('');
   };
   return (
-    // (Julian, phone) compact, so that everything fits above the keyboard: the question and its group on two short lines
-    // with the time left beside them (no label, a little smaller), smaller gaps
+    // (Julian, phone) compact, so that everything fits above the keyboard: smaller gaps; the clocks on their own lines
     <div className="flex flex-col gap-2 sm:gap-4">
-      <div className="flex sm:flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-col sm:flex-row sm:items-baseline gap-x-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-baseline gap-x-3">
           <span className="text-sm font-black text-zinc-100 whitespace-nowrap">Question {t.index + 1} / {t.questions.length}</span>
           <span className="text-xs text-amber-300 whitespace-nowrap">{groupLabel(q)}</span>
         </div>
         {t.remaining !== null && (
-          <div className="flex items-center gap-2">
-            <span className={`${LABEL} whitespace-nowrap max-md:hidden`}>Time left</span>
-            <div className="max-md:[zoom:0.8]"><SevenSeg text={formatElapsed(t.remaining)} label={`Time left ${formatElapsed(t.remaining)}`} /></div>
+          <div className="max-md:hidden flex items-center gap-2">
+            <span className={`${LABEL} whitespace-nowrap`}>Time left</span>
+            <SevenSeg text={formatElapsed(t.remaining)} label={`Time left ${formatElapsed(t.remaining)}`} />
+          </div>
+        )}
+      </div>
+      {/* (phone) the frame covers the controls while the test runs, so the elapsed time is shown here (Julian: it must
+          stay in view), and under it the time left when there is a timer; each on its own line, the digits a little smaller */}
+      <div className="md:hidden flex flex-col gap-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className={`${LABEL} whitespace-nowrap`}>Time elapsed</span>
+          <div className="[zoom:0.7]"><SevenSeg text={formatElapsed(t.elapsed)} label={`Elapsed time ${formatElapsed(t.elapsed)}`} /></div>
+        </div>
+        {t.remaining !== null && (
+          <div className="flex items-center justify-between gap-2">
+            <span className={`${LABEL} whitespace-nowrap`}>Time left</span>
+            <div className="[zoom:0.7]"><SevenSeg text={formatElapsed(t.remaining)} label={`Time left ${formatElapsed(t.remaining)}`} /></div>
           </div>
         )}
       </div>
