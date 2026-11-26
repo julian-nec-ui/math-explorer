@@ -36,10 +36,11 @@ export interface FractionScript {
   whole: number;
   setMix: Dispatch<SetStateAction<{ stage: 1 | 2 | 3; parts: number; den: boolean; wholes: number; fw: boolean; } | null>>;
   rem: number;
+  showFractions: (id: string) => void;
 }
 
 // The explanation, started when `run` turns true
-export function runFractions({ run, ready, refs, setHop, valid, onStatus, onDone, f2, f1, setHl, D, k1, k2, setFact, fRows, lcmPicks, setMultiples, setAmp1, setAmp2, setLine2, a1, a2, setLine3, N, setExtra, g, rn, rd, sN, whole, setMix, rem }: FractionScript) {
+export function runFractions({ run, ready, refs, setHop, valid, onStatus, onDone, f2, f1, setHl, D, k1, k2, setFact, fRows, lcmPicks, setMultiples, setAmp1, setAmp2, setLine2, a1, a2, setLine3, N, setExtra, g, rn, rd, sN, whole, setMix, rem, showFractions }: FractionScript) {
   if (!run || !ready) return;
   let alive = true;
   let seq = 0;
@@ -163,20 +164,27 @@ export function runFractions({ run, ready, refs, setHop, valid, onStatus, onDone
       ];
       for (const st of steps) {
         setHl(`f${st.id}`);
+        // The LCM is found: back up to the fraction being amplified (Julian: on a phone held sideways the lists took the
+        // screen, and the amplifying happened out of sight)
         if (st.k === 1) {
+          showFractions(st.id);
           onStatus(`${showFrac(st.f)} already has the denominator ${D}: it stays as it is.`);
           if (!(await wait(1500))) return;
           continue;
         }
         onStatus(`${st.f.d} × ${st.k} = ${D}, so we multiply the numerator AND the denominator of ${showFrac(st.f)} by ${st.k}. The fraction keeps its value: the pieces just get smaller.`);
         st.set({ k: st.k, crossed: false, n: st.f.n * st.k, d: D });
+        showFractions(st.id);
         if (!(await wait(2000))) return;
         onStatus(`${st.f.n} × ${st.k} = ${st.f.n * st.k}  and  ${st.f.d} × ${st.k} = ${D}.`);
         st.set({ k: st.k, crossed: true, n: st.f.n * st.k, d: D });
+        showFractions(st.id);
         if (!(await wait(1800))) return;
       }
     }
     setHl('');
+    // (the view follows the work again)
+    showFractions('');
 
     // One fraction with a long line: the numerators with their signs on top, the common denominator below
     setLine2({ t1: false, t2: false, den: false });

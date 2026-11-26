@@ -172,6 +172,8 @@ export function useScrollFollow(viewRef: Ref<HTMLDivElement>, isAnimating: boole
     const follow = () => {
       frame = 0;
       if (!runningRef.current) return;
+      // (a board holding the view on what it shows now, e.g. the fraction being amplified)
+      if (content.querySelector('[data-follow-hold]')) return;
       // the board scrolls inside its own frame (desk), or, when the frame grows with it (phones, phones held sideways),
       // the page scrolls instead
       const inFrame = el.scrollHeight > el.clientHeight + 1 && getComputedStyle(el).overflowY !== 'visible';
@@ -181,6 +183,8 @@ export function useScrollFollow(viewRef: Ref<HTMLDivElement>, isAnimating: boole
       let lowest = -Infinity;
       for (const node of content.querySelectorAll('*')) {
         if (node.childElementCount || !node.textContent?.trim()) continue;
+        // (a part of the board the explanation is done with, e.g. the fractions' LCM lists once the LCM is found)
+        if (node.closest('[data-follow-done]')) continue;
         const r = node.getBoundingClientRect();
         if (!r.height || r.bottom <= lowest) continue;
         let hidden = false;

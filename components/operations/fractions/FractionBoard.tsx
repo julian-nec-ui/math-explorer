@@ -37,6 +37,37 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
 
   const [hl, setHl] = useState('');
   // The lists of multiples; null = "…" (the multiples of 1 are shortened: 1 … 5)
+  // The LCM is found (Julian): the page (or the board's frame) goes back up to the fractions, which are amplified next,
+  // and the lists / factors under them no longer pull the view down (data-follow-done, see useScrollFollow)
+  const [pastLcm, setPastLcm] = useState(false);
+  // (`id`: the fraction being amplified, 1 or 2: it is brought fully into view — from its numerator to its denominator —
+  // and the view stays on it (`followHold`: useScrollFollow doesn't pull it down to the lowest text meanwhile); '' = done)
+  const [followHold, setFollowHold] = useState(false);
+  const showFractions = (id: string) => {
+    setFollowHold(!!id);
+    if (!id) return;
+    setPastLcm(true);
+    // (two frames: the new numerator / denominator written above / below it are drawn first)
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const n = refs.current[`n${id}`], d = refs.current[`d${id}`];
+      const el = contentRef.current;
+      if (!n || !d || !el) return;
+      const parts = [n, d, refs.current[`n${id}x`], refs.current[`d${id}x`]].filter((x): x is HTMLElement => !!x).map(x => x.getBoundingClientRect());
+      const top = Math.min(...parts.map(r => r.top)) - 12, bottom = Math.max(...parts.map(r => r.bottom)) + 12;
+      const area = el.closest('.steps-scroll');
+      // the board scrolls in its own frame (desk), or the page scrolls (phones; the steps window sits on the screen's bottom)
+      if (area && area.scrollHeight > area.clientHeight + 1 && getComputedStyle(area).overflowY !== 'visible') {
+        const r = area.getBoundingClientRect();
+        const by = top < r.top ? top - r.top : bottom > r.bottom ? Math.min(bottom - r.bottom, top - r.top) : 0;
+        if (Math.abs(by) > 1) area.scrollBy({ top: by, behavior: 'smooth' });
+      } else {
+        const steps = document.querySelector<HTMLElement>('div.sticky.bottom-0');
+        const low = window.innerHeight - (steps?.offsetHeight ?? 0);
+        const by = top < 0 ? top : bottom > low ? Math.min(bottom - low, top) : 0;
+        if (Math.abs(by) > 1) window.scrollBy({ top: by, behavior: 'smooth' });
+      }
+    }));
+  };
   const [multiples, setMultiples] = useState<{ a: (number | null)[]; b: (number | null)[]; common: number | null } | null>(null);
   const [amp1, setAmp1] = useState<Mark | null>(null);
   const [amp2, setAmp2] = useState<Mark | null>(null);
@@ -90,7 +121,7 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
   const refs = useRef<Record<string, HTMLElement | null>>({});
   const reg = (k: string) => (el: HTMLElement | null) => { refs.current[k] = el; };
 
-  useEffect(() => runFractions({ run, ready, refs, setHop, valid, onStatus, onDone, f2, f1, setHl, D, k1, k2, setFact, fRows, lcmPicks, setMultiples, setAmp1, setAmp2, setLine2, a1, a2, setLine3, N, setExtra, g, rn, rd, sN, whole, setMix, rem }), [run]);
+  useEffect(() => runFractions({ run, ready, refs, setHop, valid, onStatus, onDone, f2, f1, setHl, D, k1, k2, setFact, fRows, lcmPicks, setMultiples, setAmp1, setAmp2, setLine2, a1, a2, setLine3, N, setExtra, g, rn, rd, sN, whole, setMix, rem, showFractions }), [run]);
 
   // Fit: when the row of the calculations is wider than the board area, everything shrinks evenly (CSS zoom: digits,
   // signs, lines, chips, brackets) until it fits, down to 40%. Measured
@@ -214,7 +245,7 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
     <div className="flex flex-col items-start">
     {/* Zoomed to fit (see `fit`), and at most as wide as the board area, so the rows wrap (the second fraction under
         the first) instead of scrolling */}
-    <div ref={contentRef} className="flex flex-col items-start" style={{ zoom: fit, marginLeft: mdUp ? `${(leftRoom !== 0 ? -(leftRoom + 71) - 3.5 : 97) / 16 / fit}rem` : `${-(edge + 4) / 16 / fit}rem`, maxWidth: mdUp ? undefined : availableWidth ? Math.max(320, availableWidth - 16) / fit : undefined }}>
+    <div ref={contentRef} data-follow-hold={followHold || undefined} className="flex flex-col items-start" style={{ zoom: fit, marginLeft: mdUp ? `${(leftRoom !== 0 ? -(leftRoom + 71) - 3.5 : 97) / 16 / fit}rem` : `${-(edge + 4) / 16 / fit}rem`, maxWidth: mdUp ? undefined : availableWidth ? Math.max(320, availableWidth - 16) / fit : undefined }}>
       <div data-expr className="flex flex-wrap items-center justify-start gap-x-5 gap-y-4">
         {/* The problem (Julian): the second fraction under the first, both starting at the same place, each with its
             sign in round brackets and its digit-count drums on its left (half as far from the bracket as before); the
@@ -388,7 +419,7 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
       {/* The LCM by prime factorization: "Prime factors of 8:  2 × 2 × 2 = 2³", one row per denominator, then
           "LCM:  2³ × 3² = 8 × 9 = 72". Same grid as the multiples (labels on the left, stacked on phones) */}
       {fact && (
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-[auto_auto] items-center gap-x-3 gap-y-1 sm:gap-y-2">
+        <div data-follow-done={pastLcm || undefined} className="mt-4 grid grid-cols-1 sm:grid-cols-[auto_auto] items-center gap-x-3 gap-y-1 sm:gap-y-2">
           {fRows.slice(0, fact.rows).map((row, r) => (
             <div key={r} className="contents">
               <span className="whitespace-nowrap text-left text-xs font-bold text-zinc-400 mt-1 sm:mt-0">Prime factors of {row.d}:</span>
@@ -449,7 +480,7 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
           multiple (green) is in the same column on every row. On narrow screens (under 640px) each label goes on its own
           line, above its numbers, and the cells get smaller, so 9 multiples still fit on a phone */}
       {multiples && (
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-[auto_auto] items-center gap-x-3 gap-y-1 sm:gap-y-2">
+        <div data-follow-done={pastLcm || undefined} className="mt-4 grid grid-cols-1 sm:grid-cols-[auto_auto] items-center gap-x-3 gap-y-1 sm:gap-y-2">
           {[{ d: f1.d, list: multiples.a, id: 'a' }, { d: f2.d, list: multiples.b, id: 'b' }].map(row => (
             <div key={row.id} className="contents">
               <span className="whitespace-nowrap text-left text-xs font-bold text-zinc-400 mt-1 sm:mt-0">Multiples of {row.d}:</span>
