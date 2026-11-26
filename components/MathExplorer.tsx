@@ -25,6 +25,10 @@ import { useProblem } from './explorer/useProblem';
 import { useStepDelay } from './explorer/useStepDelay';
 import { useStepsWindow } from './explorer/useStepsWindow';
 
+// A phone held upright in testing mode (Julian): the panel is exactly the screen's height and the test frame fills what
+// is left under the controls, so nothing scrolls and its closed "Ready to test..." strip stays on the screen
+const PHONE_TEST_FIT = (testing: boolean, cls: string): string => (testing ? cls : '');
+
 // Every operation's name (the test frame keeps clear of the widest title)
 const OP_LABELS = OPERATIONS.map(o => o.label);
 
@@ -183,7 +187,7 @@ export default function MathExplorer(): ReactElement {
               bottom (min-h-dvh, border included): the page only scrolls when the content is taller (Julian).
               Tablet and desktop (`desk`: at least 48rem wide and 37.5rem tall, see globals.css): 99% of the screen width
               and 97% of its height; the board scrolls inside the middle area */}
-          <div ref={panelRef} data-panel data-entering={entering || undefined} className="relative min-h-dvh desk:min-h-0 desk:h-[97vh] flex flex-col gap-3 2xl:gap-0 bg-linear-to-br from-[#191a23] via-[#15161e] to-[#111219] border-zinc-800 border rounded-3xl phone:overflow-clip p-3 sm:p-5 md:p-6 lg:p-8 md:pr-2.5 lg:pr-2.5 land:pt-3! phone:pb-0! backdrop-blur-xl shadow-2xl">
+          <div ref={panelRef} data-panel data-entering={entering || undefined} className={`${PHONE_TEST_FIT(testing, 'max-md:portrait:h-dvh max-md:portrait:overflow-hidden')} relative min-h-dvh desk:min-h-0 desk:h-[97vh] flex flex-col gap-3 2xl:gap-0 bg-linear-to-br from-[#191a23] via-[#15161e] to-[#111219] border-zinc-800 border rounded-3xl phone:overflow-clip p-3 sm:p-5 md:p-6 lg:p-8 md:pr-2.5 lg:pr-2.5 land:pt-3! phone:pb-0! backdrop-blur-xl shadow-2xl`}>
             {/* 3D title (same for every operation): metallic light-to-shade gradient on the letters, an extruded
                 edge built from stacked 1px shadows that get darker downwards, and a soft cast shadow. Raised 5px */}
             {/* Header. The operation tabs always keep the same look (one row, full names) at the top right.
@@ -206,8 +210,8 @@ export default function MathExplorer(): ReactElement {
                 sits on the right. Otherwise: the board on top and the steps window under it, full width */}
             {/* (desk: room for the learning / testing switch hanging under the title, 20px under it, and as much again under
                 the switch: everything below moves down by that much, Julian) */}
-            <div className="flex flex-col gap-3 flex-1 desk:min-h-0 desk:mt-[2.875rem] desk:lg:flex-row desk:lg:gap-0.5">
-            <div className="relative flex flex-col md:flex-row flex-1 min-w-0 min-h-0" style={colBottom ? { minHeight: colBottom } : undefined}>
+            <div className={`flex flex-col gap-3 flex-1 desk:min-h-0 desk:mt-[2.875rem] desk:lg:flex-row desk:lg:gap-0.5 ${PHONE_TEST_FIT(testing, 'max-md:portrait:min-h-0')}`}>
+            <div className="relative flex flex-col md:flex-row flex-1 min-w-0 min-h-0" style={colBottom && !testing ? { minHeight: colBottom } : undefined}>
               <ControlsColumn
                 colRef={colRef}
                 cell={cell}

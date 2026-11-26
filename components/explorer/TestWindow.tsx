@@ -115,7 +115,7 @@ export function TestWindow({ label, color, labels, leaving = false, onLeft, chil
         </div>,
         panel,
       )) : (
-        <div ref={phoneRef} data-test-frame onAnimationEnd={onEnd} style={{ '--test-r': '1rem' } as CSSProperties} className={`mt-[0.1875rem] mb-[0.1875rem] mr-[0.1875rem] -ml-[0.125rem] flex-1 min-w-0 self-stretch min-h-[12rem] rounded-2xl ${look}`}>
+        <div ref={phoneRef} data-test-frame onAnimationEnd={onEnd} style={{ '--test-r': '1rem' } as CSSProperties} className={`mt-[0.1875rem] mb-[0.1875rem] mr-[0.1875rem] -ml-[0.125rem] flex-1 min-w-0 self-stretch min-h-[12rem] max-md:portrait:min-h-0 rounded-2xl ${look}`}>
           {body}
         </div>
       )}
