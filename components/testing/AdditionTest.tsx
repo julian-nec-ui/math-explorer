@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react';
 import SevenSeg, { formatElapsed } from '../math/SevenSeg';
 import { groupLabel, groupsOf, LEVELS, PER_GROUP, type Question } from './additionModel';
+import { ResultChart } from './ResultChart';
 import { MAX_MINUTES, MIN_MINUTES, type AdditionTest } from './useAdditionTest';
 
 // The addition test inside the test frame (Julian): set up (level, timer, start) → the questions one by one → the
@@ -115,6 +116,61 @@ function Running({ t }: { t: AdditionTest }): ReactElement {
   const [last, setLast] = useState<{ ok: boolean; q: Question; value: number } | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const form = useRef<HTMLFormElement>(null);
+  // The answer is written as in a column addition (Julian): from right to left, one column at a time — each new digit goes
+  // in front of the ones typed so far (the units first, then the tens, …). The last column (the leftmost of the longer
+  // number) can make two digits: those are typed as they read (8 + 3 + carry: "1", "2"). Where a digit goes is decided
+  // here (`slot`); after each digit typed the caret jumps to the very left, in front of everything (Julian).
+  // Corrections (Julian): the caret can be put anywhere in the answer (a click, a tap, the arrows) and Backspace / Delete
+  // take off the digit beside it; a digit typed there goes in there (then the caret jumps to the left again). With the
+  // caret at the left, Backspace takes off the last digit typed
+  // (the columns: as many as the longer number has digits — the numbers may differ in length)
+  const columns = q ? Math.max(String(q.a).length, String(q.b).length) : 1;
+  const slot = (v: string, cols: number): number => Math.max(0, v.length - (cols - 1));
+  const snapLeft = useRef(false);
+  useLayoutEffect(() => {
+    const el = input.current;
+    if (!snapLeft.current || !el) return;
+    snapLeft.current = false;
+    el.setSelectionRange(0, 0);
+  });
+  const digitsRef = useRef(columns);
+  useEffect(() => { digitsRef.current = columns; }, [columns]);
+  useEffect(() => {
+    const el = input.current;
+    if (!el) return;
+    const onBefore = (e: InputEvent) => {
+      const cols = digitsRef.current;
+      const from = el.selectionStart ?? 0, to = el.selectionEnd ?? from;
+      const atLeft = from === 0 && to === 0;
+      if (e.inputType === 'insertText' && e.data !== null) {
+        e.preventDefault();
+        const typed = e.data.replace(/\D/g, '');
+        if (!typed) return;
+        setValue(v => {
+          // the caret put somewhere by hand (or digits selected): there; otherwise where the column rule says
+          let out = atLeft ? v : v.slice(0, from) + v.slice(to);
+          let at = atLeft ? -1 : from;
+          for (const d of typed) {
+            if (out.length >= cols + 1) break;
+            const i = at >= 0 ? at : slot(out, cols);
+            out = out.slice(0, i) + d + out.slice(i);
+            if (at >= 0) at++;
+          }
+          return out;
+        });
+        snapLeft.current = true;
+      } else if (e.inputType === 'deleteContentBackward' && atLeft) {
+        // (the caret at the left: the last digit typed; elsewhere the browser takes off the digit before the caret)
+        e.preventDefault();
+        setValue(v => {
+          const i = Math.max(0, slot(v, cols) - 1);
+          return v.slice(0, i) + v.slice(i + 1);
+        });
+      }
+    };
+    el.addEventListener('beforeinput', onBefore);
+    return () => el.removeEventListener('beforeinput', onBefore);
+  }, []);
   // the answer box gets the keyboard; on a small screen the question, the box and the buttons are scrolled into view
   useEffect(() => {
     input.current?.focus({ preventScroll: true });
@@ -167,7 +223,7 @@ function Running({ t }: { t: AdditionTest }): ReactElement {
       <form ref={form} className="flex flex-wrap items-end gap-x-3 sm:gap-x-4 gap-y-2 sm:gap-y-3" onSubmit={e => { e.preventDefault(); send(); }}>
         <Column q={q} cols={widestResult(t.questions)} answer={
           <input ref={input} value={value} inputMode="numeric" autoComplete="off" aria-label={`${q.a} plus ${q.b} equals`}
-            onChange={e => setValue(e.target.value.replace(/\D/g, '').slice(0, q.digits + 1))}
+            onChange={e => { const d = e.target.value.replace(/\D/g, ''); setValue(d.length > columns + 1 ? value : d); }}
             className="w-full max-md:-ml-[0.625rem] max-md:w-[calc(100%+0.625rem)] bg-zinc-950 border border-zinc-600 focus:border-amber-400 outline-none rounded-md text-right font-mono font-black text-[1.75rem] sm:text-[2rem] leading-none sm:leading-normal py-1 sm:py-0 text-amber-200 px-1 tracking-[0.15em]" />
         } />
         <div className="flex items-center gap-2 sm:gap-3">
@@ -219,6 +275,8 @@ function Done({ t }: { t: AdditionTest }): ReactElement {
         <button type="button" className={SECONDARY} onClick={t.newTest}>New test</button>
         <button type="button" className={SECONDARY} onClick={t.toSetup}>Change level</button>
       </div>
+      {/* (Julian) the result as a 3D ring: correct and wrong answers, the score in the middle */}
+      <ResultChart score={t.score} total={t.questions.length} />
     </div>
   );
 }
