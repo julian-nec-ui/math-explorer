@@ -85,7 +85,8 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
   const [extra, setExtra] = useState<'whole' | 'mixed' | null>(null);
   // The mixed number explained, e.g. 15/8: 1 = (8 + 7)/8, 2 = 8/8 + 7/8, 3 = 1 + 7/8, then the mixed number 1 7/8.
   // parts / den / wholes / fw: what has already appeared (the jumps land on hidden places that then show up)
-  const [mix, setMix] = useState<{ stage: 1 | 2 | 3; parts: number; den: boolean; wholes: number; fw: boolean } | null>(null);
+  // (adding: the wholes' 1s flash while they are added; sum: the line with their sum, see the script)
+  const [mix, setMix] = useState<{ stage: 1 | 2 | 3; parts: number; den: boolean; wholes: number; fw: boolean; adding: boolean; sum: boolean } | null>(null);
   const [hop, setHop] = useState<Hop | null>(null);
 
   // The LCM by prime factorization (when a list of multiples would be longer than MAX_MULTIPLES): each denominator as
@@ -391,10 +392,22 @@ export default function FractionBoard({ num1, num2, run, onStatus, onDone, rende
                     {(few ? [...Array(whole).keys()] : [0]).map(i => (
                       <div key={i} className="flex items-center gap-3">
                         {i > 0 && <SignMark s={1} hidden={mix.wholes <= i} />}
-                        <Num value={few ? 1 : whole} variant="result" refFn={reg(`m3w${i}`)} hidden={mix.wholes <= i} />
+                        <Num value={few ? 1 : whole} variant={mix.adding ? 'highlight' : 'result'} refFn={reg(`m3w${i}`)} hidden={mix.wholes <= i} />
                       </div>
                     ))}
                   </div>
+                  <SignMark s={1} />
+                  <FracView top={<Num value={rem} variant="computed" />} bottom={<Num value={rd} variant="computed" />} />
+                  {neg && <Paren ch=")" />}
+                </div>
+              )}
+              {/* The wholes added up (Julian): their sum, highlighted until it goes to the final result */}
+              {mix.sum && (
+                <div className="flex items-center gap-3 animate-pop-in">
+                  <Eq />
+                  {neg && <SignMark s={-1} />}
+                  {neg && <Paren ch="(" />}
+                  <Num value={whole} variant={mix.fw ? 'result' : 'highlight'} refFn={reg('m4w')} />
                   <SignMark s={1} />
                   <FracView top={<Num value={rem} variant="computed" />} bottom={<Num value={rd} variant="computed" />} />
                   {neg && <Paren ch=")" />}

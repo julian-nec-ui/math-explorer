@@ -34,7 +34,7 @@ export interface FractionScript {
   rd: number;
   sN: 1 | -1;
   whole: number;
-  setMix: Dispatch<SetStateAction<{ stage: 1 | 2 | 3; parts: number; den: boolean; wholes: number; fw: boolean; } | null>>;
+  setMix: Dispatch<SetStateAction<{ stage: 1 | 2 | 3; parts: number; den: boolean; wholes: number; fw: boolean; adding: boolean; sum: boolean; } | null>>;
   rem: number;
   showFractions: (id: string) => void;
 }
@@ -224,7 +224,7 @@ export function runFractions({ run, ready, refs, setHop, valid, onStatus, onDone
         // How the whole in front is found: split the numerator into wholes (rd pieces each) and the rest
         const few = whole <= MAX_WHOLE_PIECES;
         const pieces = few ? whole + 1 : 2;
-        const st = { stage: 1 as 1 | 2 | 3, parts: 0, den: false, wholes: 0, fw: false };
+        const st = { stage: 1 as 1 | 2 | 3, parts: 0, den: false, wholes: 0, fw: false, adding: false, sum: false };
         setMix({ ...st });
         onStatus(few
           ? `${rn}/${rd} is more than a whole. One whole is ${rd}/${rd}: ${rd} pieces of ${rd}. So we split ${rn} into ${[...Array(whole).fill(rd), rem].join(' + ')}.`
@@ -259,10 +259,27 @@ export function runFractions({ run, ready, refs, setHop, valid, onStatus, onDone
         }
         if (!(await wait(1400))) return;
 
+        // The wholes are added (Julian): the 1s flash, their sum shows up (highlighted) on the next line, and that sum is
+        // what goes to the final result
+        const addUp = few && whole > 1;
+        if (addUp) {
+          onStatus(`${Array(whole).fill(1).join(' + ')} = ${whole}: ${whole} wholes.`);
+          for (const on of [true, false, true]) {
+            st.adding = on;
+            setMix({ ...st });
+            if (!(await wait(on ? 450 : 250))) return;
+          }
+          if (!(await wait(500))) return;
+          st.adding = false;
+          st.sum = true;
+          setMix({ ...st });
+          if (!(await wait(1800))) return;
+        }
+
         setExtra('mixed');
         onStatus(`${whole} + ${rem}/${rd} is written as the mixed number ${whole} ${rem}/${rd}: ${whole} whole${whole > 1 ? 's' : ''} and ${rem}/${rd}.`);
         if (!(await wait(700))) return;
-        if (!(await jump('m3ws', 'fw', whole, () => { st.fw = true; setMix({ ...st }); }))) return;
+        if (!(await jump(addUp ? 'm4w' : 'm3ws', 'fw', whole, () => { st.fw = true; setMix({ ...st }); }))) return;
         if (!(await wait(1800))) return;
       }
     }
