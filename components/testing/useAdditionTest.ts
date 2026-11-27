@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { makeTest, type Level, type Question } from './additionModel';
+import { carryBoxes, carryText, carryExpectedText, isRight, makeTest, type Level, type Question } from './additionModel';
 
 // The addition test's state (Julian):
 // - setup: the level, and the timer — No time, or a countdown set in whole minutes (60 s steps);
@@ -31,6 +31,8 @@ export function useAdditionTest() {
   const [phase, setPhase] = useState<Phase>('setup');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<(number | null)[]>([]);
+  // the carries written for each question (see additionModel: one box per column the carry goes into)
+  const [carries, setCarries] = useState<string[][]>([]);
   const [index, setIndex] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [timeUp, setTimeUp] = useState(false);
@@ -44,6 +46,7 @@ export function useAdditionTest() {
   const begin = useCallback((qs: Question[]) => {
     setQuestions(qs);
     setAnswers(qs.map(() => null));
+    setCarries(qs.map(q => Array.from({ length: carryBoxes(q) }, () => '')));
     setIndex(0);
     setElapsed(0);
     setTimeUp(false);
@@ -53,15 +56,24 @@ export function useAdditionTest() {
     setPhase('running');
   }, []);
 
-  const finish = useCallback((given: (number | null)[], up: boolean) => {
+  const finish = useCallback((given: (number | null)[], carried: string[][], up: boolean) => {
     const ms = performance.now() - startAt.current;
     const final = limit !== null ? Math.min(ms, limit) : ms;
     setElapsed(final);
     setTimeUp(up);
     setPhase('done');
     setReview(0);
-    const score = given.filter((v, i) => v !== null && v === questions[i].a + questions[i].b).length;
-    setLog(l => [...l, ...(up ? ["Time's up."] : []), `Done! Score ${score} / ${questions.length}`]);
+    const score = questions.filter((q, i) => isRight(q, given[i], carried[i])).length;
+    // (only now is it said what was right: while the test runs the answers can still be changed, Julian)
+    setLog([
+      ...questions.map((q, i) => {
+        const c = carryBoxes(q) > 0 ? ` · carry ${carryText(q, carried[i])}` : '';
+        const ok = isRight(q, given[i], carried[i]);
+        return `${i + 1}. ${q.a} + ${q.b} = ${given[i] ?? '—'}${c} ${ok ? '✓' : `(correct: ${q.a + q.b}${c ? ` · carry ${carryExpectedText(q)}` : ''})`}`;
+      }),
+      ...(up ? ["Time's up."] : []),
+      `Done! Score ${score} / ${questions.length}`,
+    ]);
     const result: TestResult = { at: Date.now(), level, score, total: questions.length, ms: final, timeUp: up };
     setHistory(h => {
       const next = [result, ...h].slice(0, 10);
@@ -72,12 +84,13 @@ export function useAdditionTest() {
 
   // the clock while the test runs (and the end when the time is up)
   const answersRef = useRef(answers);
-  useEffect(() => { answersRef.current = answers; }, [answers]);
+  const carriesRef = useRef(carries);
+  useEffect(() => { answersRef.current = answers; carriesRef.current = carries; }, [answers, carries]);
   useEffect(() => {
     if (phase !== 'running') return;
     const id = window.setInterval(() => {
       const ms = performance.now() - startAt.current;
-      if (limit !== null && ms >= limit) { window.clearInterval(id); finish(answersRef.current, true); return; }
+      if (limit !== null && ms >= limit) { window.clearInterval(id); finish(answersRef.current, carriesRef.current, true); return; }
       setElapsed(ms);
     }, 100);
     return () => window.clearInterval(id);
@@ -89,31 +102,40 @@ export function useAdditionTest() {
   const toSetup = () => { setPhase('setup'); setElapsed(0); setLog([]); };
   // Cancel test (Julian): stops the test under way, back to the setup; nothing is scored or kept
   const cancel = () => { setPhase('setup'); setElapsed(0); setLog(['Test cancelled.']); };
-  const reset = useCallback(() => { setPhase('setup'); setElapsed(0); setLog([]); setQuestions([]); setAnswers([]); }, []);
+  const reset = useCallback(() => { setPhase('setup'); setElapsed(0); setLog([]); setQuestions([]); setAnswers([]); setCarries([]); }, []);
 
-  // the answer to the current question; returns whether it was right
-  const submit = (value: number): boolean => {
-    if (phase !== 'running') return false;
-    const q = questions[index];
-    const ok = value === q.a + q.b;
+  // The answer to the current question (Julian: a history to go back to — any question can be opened again and its
+  // answer changed until Finish). It is kept, then the next question without an answer comes (after this one, else from
+  // the start); when all have one, it stays. Nothing says yet whether it is right
+  const submit = (value: number, carry: string[]) => {
+    if (phase !== 'running') return;
     const given = answers.map((v, i) => (i === index ? value : v));
+    const carried = carries.map((c, i) => (i === index ? carry : c));
     setAnswers(given);
-    setLog(l => [...l, `${index + 1}. ${q.a} + ${q.b} = ${value} ${ok ? '✓' : `(correct: ${q.a + q.b})`}`]);
-    if (index + 1 >= questions.length) finish(given, false);
-    else setIndex(index + 1);
-    return ok;
+    setCarries(carried);
+    setLog(questions.flatMap((q, i) => (given[i] === null ? [] : [`${i + 1}. ${q.a} + ${q.b} = ${given[i]}${carryBoxes(q) > 0 ? ` · carry ${carryText(q, carried[i])}` : ''}`])));
+    const n = questions.length;
+    for (let k = 1; k < n; k++) {
+      const j = (index + k) % n;
+      if (given[j] === null) { setIndex(j); return; }
+    }
   };
+  const goTo = (i: number) => { if (phase === 'running' && i >= 0 && i < questions.length) setIndex(i); };
+  // Finish (Julian): the test ends here — the questions without an answer count as wrong
+  const finishNow = () => { if (phase === 'running') finish(answers, carries, false); };
+  const answered = answers.filter(v => v !== null).length;
 
-  const score = answers.filter((v, i) => v !== null && questions[i] && v === questions[i].a + questions[i].b).length;
+  const score = questions.filter((q, i) => isRight(q, answers[i], carries[i])).length;
   const remaining = limit !== null ? Math.max(0, limit - elapsed) : null;
-  const canPrev = phase === 'done' && review > 0;
-  const canNext = phase === 'done' && review < questions.length - 1;
-  const prev = () => { if (canPrev) setReview(review - 1); };
-  const next = () => { if (canNext) setReview(review + 1); };
+  // Prev / Next: through the questions while the test runs (to change an answer), through the results after it
+  const canPrev = (phase === 'running' && index > 0) || (phase === 'done' && review > 0);
+  const canNext = (phase === 'running' && index < questions.length - 1) || (phase === 'done' && review < questions.length - 1);
+  const prev = () => { if (!canPrev) return; if (phase === 'running') setIndex(index - 1); else setReview(review - 1); };
+  const next = () => { if (!canNext) return; if (phase === 'running') setIndex(index + 1); else setReview(review + 1); };
 
   return {
-    level, setLevel, timerOn, setTimerOn, minutes, setMinutes, phase, questions, answers, index, elapsed, remaining, timeUp,
-    review, setReview, log, history, score, start, retake, newTest, toSetup, cancel, reset, submit, canPrev, canNext, prev, next,
+    level, setLevel, timerOn, setTimerOn, minutes, setMinutes, phase, questions, answers, carries, index, elapsed, remaining, timeUp,
+    review, setReview, log, history, score, start, retake, newTest, toSetup, cancel, reset, submit, goTo, finishNow, answered, canPrev, canNext, prev, next,
   };
 }
 export type AdditionTest = ReturnType<typeof useAdditionTest>;

@@ -40,6 +40,16 @@ const wallPath = (rx: number, ry: number, t0: number, t1: number) => {
   return `M${f(x0)} ${f(y0)}A${rx} ${ry} 0 0 1 ${f(x1)} ${f(y1)}L${f(x1)} ${f(y1 + DEPTH)}A${rx} ${ry} 0 0 0 ${f(x0)} ${f(y0 + DEPTH)}Z`;
 };
 
+// The overall score's colour (Julian): under 65% red, 65–80% yellow, 80–90% a light green, 90–100% green — each as a
+// 3D gradient (light at the top, darker at the bottom) for the big percentage
+const BANDS: { from: number; stops: [string, string, string] }[] = [
+  { from: 90, stops: ['#7ff0b4', '#00994c', '#005e2e'] },
+  { from: 80, stops: ['#d4ffa6', '#7ed957', '#4e9a2a'] },
+  { from: 65, stops: ['#fff3b0', '#f0bd3a', '#b07a00'] },
+  { from: 0, stops: ['#ff9cc0', '#c80453', '#800033'] },
+];
+const bandOf = (p: number) => BANDS.find(b => p >= b.from) ?? BANDS[BANDS.length - 1];
+
 export function ResultChart({ score, total }: { score: number; total: number }): ReactElement {
   const id = useId().replace(/:/g, '');
   const wrong = Math.max(0, total - score);
@@ -91,6 +101,23 @@ export function ResultChart({ score, total }: { score: number; total: number }):
         <text x={CX} y={CY + 6} textAnchor="middle" className="font-black" fontSize="17" fill="#f4f4f5">{score}/{total}</text>
       </svg>
       <ul className="flex flex-col gap-2.5 text-sm sm:text-base max-md:order-first">
+        {/* (Julian) the overall score first, in line with the two rows under it: big, 3D, coloured by how good it is */}
+        <li className="flex items-center gap-3 whitespace-nowrap">
+          {/* (Julian) the label 15% bigger; the digits 5% smaller, the % sign 10% smaller (than 2.25rem), then 5% bigger and 2px further right, then 10% smaller (1.9136rem); later digits −20% (1.71rem), % −5% (1.8179rem), then % −10% (1.6361rem) */}
+          <span className="text-zinc-200 font-bold text-[1.15rem] sm:text-[1.29rem]">Overall score</span>
+          <span
+            className="font-black text-[1.71rem] leading-none tracking-tight"
+            style={{
+              backgroundImage: `linear-gradient(180deg, ${bandOf(pct(score)).stops[0]} 0%, ${bandOf(pct(score)).stops[1]} 55%, ${bandOf(pct(score)).stops[2]} 100%)`,
+              WebkitBackgroundClip: 'text',
+              backgroundClip: 'text',
+              color: 'transparent',
+              filter: 'drop-shadow(0 -1px 0 rgba(255,255,255,0.35)) drop-shadow(0.5px 1.5px 0 rgba(0,0,0,0.55)) drop-shadow(0.5px 1.5px 0 rgba(0,0,0,0.45)) drop-shadow(1px 6px 6px rgba(0,0,0,0.6))',
+            }}
+          >
+            {pct(score)}<span className="text-[1.6361rem] ml-[0.125rem]">%</span>
+          </span>
+        </li>
         <li className="flex items-center gap-2.5 whitespace-nowrap">
           <span className="w-5 h-5 rounded-[6px] shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_2px_3px_rgba(0,0,0,0.5)]" style={{ background: `linear-gradient(90deg, ${RIGHT.top.join(', ')})` }} />
           <span className="text-zinc-300">Correct answers</span>

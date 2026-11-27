@@ -177,9 +177,10 @@ export function ControlsColumn({ colRef, cell, timerGap, elapsed, problem, isAni
         )}
         {paused ? 'Resume' : 'Pause'}
       </button>
+      {/* (testing mode: not here — the test has its own «» beside "Question N / 18", Julian) */}
       {/* Prev / Next (Julian): under Pause, made exactly like it (the same 3D look, shadows, push), #104070 with a #40668c metallic gradient, white text and double chevrons.
           While paused, or once the explanation is finished: one step back / on (see prevStep / nextStep) */}
-      <div ref={navRef} className="shrink-0 grid grid-cols-2 gap-2" style={navShift ? { translate: `${navShift}px 0` } : undefined}>
+      <div ref={navRef} className={`${testing ? 'hidden!' : ''} shrink-0 grid grid-cols-2 gap-2`} style={navShift ? { translate: `${navShift}px 0` } : undefined}>
         {([['prev', 'Prev', canPrev, onPrev, 'One step back'], ['next', 'Next', canNext, onNext, 'One step on']] as const).map(([k, label, can, go, hint]) => (
           <button
             key={k}

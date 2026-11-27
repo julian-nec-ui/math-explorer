@@ -34,6 +34,37 @@ export const groupLabel = (g: Group): string => `${g.digits} digit${g.digits > 1
 
 export type Question = Group & { a: number; b: number };
 
+// Carry (Julian): in a test with carry the carries are written too, in small boxes above the first number — one above each
+// column the carry goes into, from the tens to the longer number's leftmost column (what comes out of that last column
+// is written straight into the result, as before). A question is right only when the result AND every carry are right
+// (an empty box: no carry). The boxes are there only in the groups with carry; nothing jumps into them by itself — the
+// child decides where a carry goes.
+export const columnsOf = (q: { a: number; b: number }): number => Math.max(String(q.a).length, String(q.b).length);
+// the carry into each column above the units: [into the tens, into the hundreds, …], 0 or 1 — up to the column past
+// the numbers (what comes out of the leftmost one)
+export const carriesOf = (q: { a: number; b: number }): number[] => {
+  const out: number[] = [];
+  let c = 0;
+  for (let k = 0, x = q.a, y = q.b; k < columnsOf(q); k++, x = Math.floor(x / 10), y = Math.floor(y / 10)) {
+    c = (x % 10) + (y % 10) + c >= 10 ? 1 : 0;
+    out.push(c);
+  }
+  return out;
+};
+// 1 digit with carry (Julian): a box above the tens too — the carry is written there, and at Check it turns green and
+// comes down into the result as its first digit (8 + 7: 5 typed, 1 above, Check → 15)
+export const dropsCarry = (q: Question): boolean => q.carry && columnsOf(q) === 1;
+// how many carry boxes a question has (none in the groups without carry)
+export const carryBoxes = (q: Question): number => (q.carry ? columnsOf(q) - 1 + (dropsCarry(q) ? 1 : 0) : 0);
+export const carryRight = (q: Question, carry: string[] | undefined): boolean =>
+  carriesOf(q).slice(0, carryBoxes(q)).every((c, k) => Number(carry?.[k] || 0) === c);
+export const isRight = (q: Question, value: number | null | undefined, carry: string[] | undefined): boolean =>
+  value !== null && value !== undefined && value === q.a + q.b && carryRight(q, carry);
+// the carries as written, leftmost column first ("1 –")
+export const carryText = (q: Question, carry: string[] | undefined): string =>
+  Array.from({ length: carryBoxes(q) }, (_, k) => carry?.[k] || '–').reverse().join(' ');
+export const carryExpectedText = (q: Question): string => carriesOf(q).slice(0, carryBoxes(q)).map(c => (c ? '1' : '–')).reverse().join(' ');
+
 // Does adding a and b carry in any column?
 export const hasCarry = (a: number, b: number): boolean => {
   for (let x = a, y = b; x > 0 || y > 0; x = Math.floor(x / 10), y = Math.floor(y / 10)) {
